@@ -241,7 +241,7 @@ class NovelArchiveApp {
         this.selectedTag = '전체';
         this.sortOrder = 'latest';
 
-        this.isDarkMode = true;
+        this.isDarkMode = false;
         this.fontSize = 13;
         this.fontFamily = 'font-nanumgothic';
         this.lineHeight = '180%';
@@ -484,7 +484,7 @@ class NovelArchiveApp {
     /* ---------------- 테마 ---------------- */
     initTheme() {
         const saved = localStorage.getItem('novel_archive_theme');
-        this.isDarkMode = saved ? saved === 'dark' : true;
+        this.isDarkMode = saved ? saved === 'dark' : false;  // 저장된 값 없으면 라이트
         this.applyTheme();
     }
     toggleDarkMode() {
