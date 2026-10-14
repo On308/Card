@@ -14,11 +14,28 @@ const COLOR_PALETTE = [
     { id: 'gold',     name: '골드',   hex: '#d4af37' },
 ];
 
+// 🏷️ 설정집 아이콘 표시 기준 (문자 수)
+//  - "100byte"를 원하시면 아래 THRESHOLD 계산을 byteLength()로 바꾸세요.
+const RICH_SETTINGS_THRESHOLD = 100;
+
+// 정렬 comparator를 클래스 밖 상수로 (매 렌더마다 객체 리터럴 생성 X)
+const SORT_COMPARATORS = {
+    latest:         (a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0),
+    oldest_updated: (a, b) => new Date(a.updatedAt || a.createdAt || 0) - new Date(b.updatedAt || b.createdAt || 0),
+    created_desc:   (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+    created_asc:    (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+    id_asc:         (a, b) => a.id - b.id,
+    id_desc:        (a, b) => b.id - a.id,
+    title_asc:      (a, b) => (a.title || '').localeCompare(b.title || '', 'ko'),
+    title_desc:     (a, b) => (b.title || '').localeCompare(a.title || '', 'ko'),
+    chars_desc:     (a, b) => (b.totalChars || 0) - (a.totalChars || 0),
+    chars_asc:      (a, b) => (a.totalChars || 0) - (b.totalChars || 0),
+};
+
 /* ============================================================
    FONT LAZY LOADER
    ============================================================ */
 const FontLoader = {
-    // 초기 로드에 포함되지 않은 폰트만 여기에 등록
     map: {
         'font-nanummyeongjo': { family: 'Nanum+Myeongjo:wght@400;700;800' },
         'font-ridibatang':    { css: 'https://cdn.jsdelivr.net/gh/ridenote/ridibatang/ridibatang.css' },
@@ -28,7 +45,6 @@ const FontLoader = {
         const spec = this.map[fontClass];
         if (!spec || this.loaded.has(fontClass)) return;
         this.loaded.add(fontClass);
-
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = spec.css || `https://fonts.googleapis.com/css2?family=${spec.family}&display=swap`;
@@ -56,29 +72,61 @@ function applyTextCorrections(text) {
     converted = converted.replace(/겟지/g, '겠지');
     converted = converted.replace(/겟어/g, '겠어');
 
-    // 문장 종결 부호 뒤 마침표 삽입
-    converted = converted.replace(/([…”’])/g, (m) => '….'.slice(0, 1) + m); // placeholder 안전장치
-    converted = converted.replace(/…”/g, '….”');
-    converted = converted.replace(/…’/g, '….’');
-    converted = converted.replace(/다”/g, '다.”');
-    converted = converted.replace(/다’/g, '다.’');
-    converted = converted.replace(/어”/g, '어.”');
-    converted = converted.replace(/어’/g, '어.’');
-    converted = converted.replace(/데”/g, '데.”');
-    converted = converted.replace(/데’/g, '데.’');
-    converted = converted.replace(/지”/g, '지.”');
-    converted = converted.replace(/지’/g, '지.’');
+    // "…" 뒤 종결 따옴표에 마침표 삽입
+    converted = converted.replace(/(…)([”’])/g, '$1.$2');
+    // 다/어/데/지 뒤 종결 따옴표에도 마침표 삽입
+    converted = converted.replace(/([다어데지])([”’])/g, '$1.$2');
 
     return converted;
 }
 
 /* ============================================================
-   HTML ESCAPE (최적화)
+   HTML ESCAPE
    ============================================================ */
 const HTML_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/[&<>"']/g, c => HTML_MAP[c]);
+}
+
+/* ============================================================
+   TEMPLATE HELPERS
+   ============================================================ */
+function renderColorGrid(name, selectedHex = '') {
+    const sel = (selectedHex || '').toLowerCase();
+    return COLOR_PALETTE.map(c => `
+        <label class="color-opt">
+            <input type="radio" name="${name}" value="${c.hex}" ${c.hex.toLowerCase() === sel ? 'checked' : ''}>
+            <span class="color-dot" style="background-color:${c.hex};"></span>
+            <span class="color-name">${c.name}</span>
+        </label>
+    `).join('');
+}
+
+function autoCorrectBlock(textareaId, uploadHandler) {
+    return `
+        <div style="display:flex; gap:0.5rem;">
+            <button type="button" onclick="app.triggerAutoCorrect('${textareaId}')" class="gold-button">✨ 자동 교정</button>
+            <label class="cyan-button" style="cursor:pointer;">
+                텍스트 업로드
+                <input type="file" accept=".txt" onchange="app.${uploadHandler}(event)" hidden>
+            </label>
+        </div>
+    `;
+}
+
+/* ============================================================
+   SETTINGS FLAG HELPER
+   ============================================================ */
+/* settings 배열이 "풍부한 설정" 기준을 넘는지 판단.
+ * 기준: 모든 설정 content 길이 합 >= RICH_SETTINGS_THRESHOLD (문자 수 기준)
+ */
+ 
+function computeHasRichSettings(settings) {
+    if (!Array.isArray(settings) || settings.length === 0) return false;
+    const byteLength = (s) => new TextEncoder().encode(s || '').length;
+    const total = settings.reduce((a, s) => a + byteLength(s.content), 0);
+    return total >= RICH_SETTINGS_THRESHOLD;
 }
 
 /* ============================================================
@@ -109,7 +157,6 @@ class NovelDatabase {
                     db.createObjectStore(this.contentStore, { keyPath: 'id' });
                 }
 
-                // v1 → v2 마이그레이션
                 if (oldVersion < 2 && db.objectStoreNames.contains('novels')) {
                     const oldStore = tx.objectStore('novels');
                     const metaStore = tx.objectStore(this.metaStore);
@@ -119,10 +166,12 @@ class NovelDatabase {
                         (req.result || []).forEach(n => {
                             const { chapters, settings, ...meta } = n;
                             const chs = chapters || [];
+                            const sts = settings || [];
                             meta.chapterCount = chs.length;
                             meta.totalChars = chs.reduce((s, c) => s + ((c.content || '').length), 0);
+                            meta.hasRichSettings = computeHasRichSettings(sts);
                             metaStore.put(meta);
-                            contentStore.put({ id: n.id, chapters: chs, settings: settings || [] });
+                            contentStore.put({ id: n.id, chapters: chs, settings: sts });
                         });
                     };
                 }
@@ -172,16 +221,14 @@ class NovelDatabase {
         return new Promise((resolve, reject) => {
             const { chapters, settings, ...meta } = novel;
             const chs = chapters || [];
+            const sts = settings || [];
             meta.chapterCount = chs.length;
             meta.totalChars = chs.reduce((s, c) => s + ((c.content || '').length), 0);
+            meta.hasRichSettings = computeHasRichSettings(sts);
 
             const tx = this.db.transaction([this.metaStore, this.contentStore], 'readwrite');
             tx.objectStore(this.metaStore).put(meta);
-            tx.objectStore(this.contentStore).put({
-                id: novel.id,
-                chapters: chs,
-                settings: settings || [],
-            });
+            tx.objectStore(this.contentStore).put({ id: novel.id, chapters: chs, settings: sts });
             tx.oncomplete = () => resolve(meta);
             tx.onerror = () => reject(tx.error);
         });
@@ -198,7 +245,7 @@ class NovelDatabase {
     }
 
     // 복원 / 마이그레이션 용도
-    async saveAllNovels(novels) {
+    saveAllNovels(novels) {
         const tx = this.db.transaction([this.metaStore, this.contentStore], 'readwrite');
         const metaStore = tx.objectStore(this.metaStore);
         const contentStore = tx.objectStore(this.contentStore);
@@ -207,15 +254,54 @@ class NovelDatabase {
         for (const n of novels) {
             const { chapters, settings, ...meta } = n;
             const chs = chapters || [];
+            const sts = settings || [];
             meta.chapterCount = chs.length;
             meta.totalChars = chs.reduce((s, c) => s + ((c.content || '').length), 0);
+            meta.hasRichSettings = computeHasRichSettings(sts);
             metaStore.put(meta);
-            contentStore.put({ id: n.id, chapters: chs, settings: settings || [] });
+            contentStore.put({ id: n.id, chapters: chs, settings: sts });
         }
         return new Promise((resolve, reject) => {
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
+    }
+
+    /* ============================================================
+       🏷️ 마이그레이션: hasRichSettings 플래그 재계산
+       -----------------------------------------------------------
+       - meta 스토어의 모든 항목을 검사
+       - 본문(chapters)은 건드리지 않고 settings만 읽어 판정
+       - 값이 이미 존재하고 정확하면 write 하지 않음
+       - 한 번 실행 후에는 모든 meta가 플래그를 갖게 되어,
+         다음 실행부터는 즉시 no-op 으로 종료됨
+
+       @returns {Promise<number>} 갱신된 작품 수
+       ============================================================ */
+    async refreshRichSettingsFlags() {
+        const metas = await this.getAllMetas();
+
+        // 모든 meta가 이미 플래그를 갖고 있으면 스킵 (일반적 재시작 시 즉시 반환)
+        if (!metas.some(m => m.hasRichSettings === undefined)) return 0;
+
+        let updated = 0;
+        for (const meta of metas) {
+            // content 스토어에서 settings만 읽음 (chapters는 무시)
+            const content = await this.getContent(meta.id);
+            const hasRichSettings = computeHasRichSettings(content.settings);
+
+            if (meta.hasRichSettings !== hasRichSettings) {
+                meta.hasRichSettings = hasRichSettings;
+                await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(this.metaStore, 'readwrite');
+                    tx.objectStore(this.metaStore).put(meta);
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+                updated++;
+            }
+        }
+        return updated;
     }
 }
 
@@ -226,9 +312,7 @@ class NovelArchiveApp {
     constructor() {
         this.db = new NovelDatabase();
 
-        // 목록 화면: 메타만 (본문 없음)
         this.novels = [];
-        // 상세 화면: 전체 데이터 (본문 포함)
         this.currentNovel = null;
 
         this.currentView = 'list';
@@ -248,22 +332,21 @@ class NovelArchiveApp {
 
         this.lastInput = { color: '#f8c8dc', title: '', keyword: '' };
 
-        // 캐시
         this.tagCache = { counts: {}, allTags: [] };
+        this._lastFilteredIds = null;
 
-        // 자동저장/디바운스
         this.autoSaveTimer = null;
         this.fileSaveTimer = null;
         this.isComposing = false;
 
-        // 파일 연결
         this.fileHandle = null;
 
         this.initTheme();
         this.initPreferences();
+        this.initEventDelegation();
         this.initApp();
         this.initGlobalKeyEvents();
-        this.initBeforeUnloadSave();
+        this.initVisibilitySave();
     }
 
     /* ---------------- 초기화 ---------------- */
@@ -271,9 +354,22 @@ class NovelArchiveApp {
         const fs = localStorage.getItem('novel_archive_fontsize');
         if (fs) this.fontSize = parseInt(fs, 10);
         const ff = localStorage.getItem('novel_archive_fontfamily');
-        if (ff) this.fontFamily = ff;
+        if (ff) {
+            this.fontFamily = ff;
+            FontLoader.ensure(ff);
+        }
         const lh = localStorage.getItem('novel_archive_lineheight');
         if (lh) this.lineHeight = lh;
+    }
+
+    initEventDelegation() {
+        document.addEventListener('click', (e) => {
+            const pill = e.target.closest('[data-action="filter-tag"]');
+            if (pill) {
+                e.stopPropagation();
+                this.filterByTag(pill.dataset.tag);
+            }
+        });
     }
 
     initGlobalKeyEvents() {
@@ -286,12 +382,10 @@ class NovelArchiveApp {
         });
     }
 
-    initBeforeUnloadSave() {
-        // 페이지 이탈 시 연결된 파일에 강제 저장
-        window.addEventListener('beforeunload', () => {
-            if (this.fileHandle && this.fileSaveTimer) {
+    initVisibilitySave() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && this.fileHandle) {
                 clearTimeout(this.fileSaveTimer);
-                // 동기적으로는 못하고, 대신 즉시 저장 시도
                 this.saveToFile();
             }
         });
@@ -324,10 +418,12 @@ class NovelArchiveApp {
                 await this.db.saveAllNovels(seed);
                 allMetas = await this.db.getAllMetas();
             } else {
-                // 옛 스키마 필드 보정
+                // 인메모리 보정 (UI 안전장치)
                 for (const m of allMetas) {
                     if (m.chapterCount === undefined) m.chapterCount = 0;
                     if (m.totalChars === undefined) m.totalChars = 0;
+                    // 주의: hasRichSettings 여기서 false로 덮지 않음 → 마이그레이션이 판단
+                    if (m.hasRichSettings === undefined) m.hasRichSettings = false;
                     if (!m.createdAt) m.createdAt = new Date().toISOString();
                     if (!m.updatedAt) m.updatedAt = m.createdAt;
                 }
@@ -340,8 +436,40 @@ class NovelArchiveApp {
             if (lastMem) this.lastInput = JSON.parse(lastMem);
 
             this.render();
+
+            // 🏷️ 옛 데이터의 hasRichSettings 플래그를 백그라운드에서 한 번 정리
+            //    - 렌더를 막지 않도록 다음 태스크로 미룸
+            //    - 이미 플래그가 다 있으면 즉시 no-op
+            setTimeout(() => this._migrateRichSettingsFlags(), 0);
+
         } catch (e) {
             console.error('초기화 실패:', e);
+        }
+    }
+
+    /**
+     * 🏷️ 옛 데이터(hasRichSettings 필드가 없던 시절 저장된 항목)의
+     *    플래그를 계산해서 meta 스토어에 반영한다.
+     *    - 본문은 로드하지 않고 settings만 읽음
+     *    - 변경된 항목이 있으면 목록 화면일 때만 다시 그림
+     */
+    async _migrateRichSettingsFlags() {
+        try {
+            const updated = await this.db.refreshRichSettingsFlags();
+            if (updated > 0) {
+                // meta 스토어에서 다시 읽어 인메모리 상태 갱신
+                this.novels = await this.db.getAllMetas();
+                for (const m of this.novels) {
+                    if (m.hasRichSettings === undefined) m.hasRichSettings = false;
+                    if (m.chapterCount === undefined) m.chapterCount = 0;
+                    if (m.totalChars === undefined) m.totalChars = 0;
+                }
+                // 태그는 안 바뀌었으므로 rebuildTagCache 불필요
+                if (this.currentView === 'list') this.render();
+                console.log(`[마이그레이션] 🏷️ hasRichSettings 갱신: ${updated}개`);
+            }
+        } catch (e) {
+            console.error('hasRichSettings 마이그레이션 실패:', e);
         }
     }
 
@@ -401,7 +529,6 @@ class NovelArchiveApp {
                     return;
                 }
             }
-            // 메타 + 본문 전체 스냅샷 필요 → 병렬 로드
             const fullData = await this.loadAllFullNovels();
             const writable = await this.fileHandle.createWritable();
             await writable.write(JSON.stringify(fullData, null, 2));
@@ -416,12 +543,10 @@ class NovelArchiveApp {
 
     async loadAllFullNovels() {
         const metas = await this.db.getAllMetas();
-        const results = [];
-        for (const m of metas) {
+        return Promise.all(metas.map(async m => {
             const c = await this.db.getContent(m.id);
-            results.push({ ...m, chapters: c.chapters || [], settings: c.settings || [] });
-        }
-        return results;
+            return { ...m, chapters: c.chapters || [], settings: c.settings || [] };
+        }));
     }
 
     async saveAsNewFile() {
@@ -461,20 +586,20 @@ class NovelArchiveApp {
     /* ---------------- 저장 흐름 ---------------- */
     async persistCurrentNovel() {
         if (!this.currentNovel) return;
-        const newMeta = await this.db.saveNovel(this.currentNovel);
         const idx = this.novels.findIndex(n => n.id === this.currentNovel.id);
+        const prevKeyword = idx !== -1 ? this.novels[idx].keyword : '';
+
+        const newMeta = await this.db.saveNovel(this.currentNovel);
+
         if (idx !== -1) this.novels[idx] = newMeta;
         else this.novels.push(newMeta);
-        this.rebuildTagCache();
+
+        // 키워드가 실제로 바뀐 경우에만 태그 캐시 재계산
+        if (newMeta.keyword !== prevKeyword) this.rebuildTagCache();
+
         this.scheduleFileSave();
     }
 
-    async persistAllNovels() {
-        await this.db.saveAllNovels(this.novels);
-        this.scheduleFileSave();
-    }
-
-    // 파일 저장은 10초 디바운스 + beforeunload 시 강제
     scheduleFileSave() {
         if (!this.fileHandle) return;
         clearTimeout(this.fileSaveTimer);
@@ -484,7 +609,7 @@ class NovelArchiveApp {
     /* ---------------- 테마 ---------------- */
     initTheme() {
         const saved = localStorage.getItem('novel_archive_theme');
-        this.isDarkMode = saved ? saved === 'dark' : false;  // 저장된 값 없으면 라이트
+        this.isDarkMode = saved ? saved === 'dark' : false;
         this.applyTheme();
     }
     toggleDarkMode() {
@@ -531,8 +656,7 @@ class NovelArchiveApp {
         return text.replace(/\s+/g, '').length;
     }
     hasValidSettings(novel) {
-        if (!novel.settings || !Array.isArray(novel.settings)) return false;
-        return novel.settings.reduce((a, s) => a + ((s.content || '').length), 0) >= 100;
+        return computeHasRichSettings(novel.settings);
     }
     parseMarkdown(text) {
         if (!text) return '';
@@ -546,7 +670,7 @@ class NovelArchiveApp {
     getFilteredNovels() {
         const q = this.searchQuery;
         const sel = this.selectedTag;
-        let filtered = this.novels.filter(n => {
+        const filtered = this.novels.filter(n => {
             if (q) {
                 const inTitle = (n.title || '').toLowerCase().includes(q);
                 const inKeyword = (n.keyword || '').toLowerCase().includes(q);
@@ -559,22 +683,8 @@ class NovelArchiveApp {
             return true;
         });
 
-        const ord = this.sortOrder;
-        // 글자수 정렬은 meta에 캐시된 값 사용 (재계산 X)
-        const cmp = {
-            latest:        (a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0),
-            oldest_updated:(a, b) => new Date(a.updatedAt || a.createdAt || 0) - new Date(b.updatedAt || b.createdAt || 0),
-            created_desc:  (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
-            created_asc:   (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
-            id_asc:        (a, b) => a.id - b.id,
-            id_desc:       (a, b) => b.id - a.id,
-            title_asc:     (a, b) => (a.title || '').localeCompare(b.title || '', 'ko'),
-            title_desc:    (a, b) => (b.title || '').localeCompare(a.title || '', 'ko'),
-            chars_desc:    (a, b) => (b.totalChars || 0) - (a.totalChars || 0),
-            chars_asc:     (a, b) => (a.totalChars || 0) - (b.totalChars || 0),
-        }[ord] || (() => 0);
-
-        filtered.sort(cmp);
+        const cmp = SORT_COMPARATORS[this.sortOrder];
+        if (cmp) filtered.sort(cmp);
         return filtered;
     }
 
@@ -582,9 +692,12 @@ class NovelArchiveApp {
     render() {
         const view = document.getElementById('appView');
         if (!view) return;
-        if (this.currentView === 'list') view.innerHTML = this.renderListView();
-        else if (this.currentView === 'detail') view.innerHTML = this.renderDetailView();
-        this.applyTheme();
+        if (this.currentView === 'list') {
+            view.innerHTML = this.renderListView();
+            this._lastFilteredIds = this.getFilteredNovels().map(n => n.id);
+        } else if (this.currentView === 'detail') {
+            view.innerHTML = this.renderDetailView();
+        }
     }
 
     goToList() {
@@ -607,15 +720,15 @@ class NovelArchiveApp {
     }
 
     async goToPrevNovel() {
-        const list = this.getFilteredNovels();
-        const i = list.findIndex(n => n.id === this.selectedNovelId);
-        if (i > 0) await this.goToDetail(list[i - 1].id);
+        const list = this._lastFilteredIds || this.getFilteredNovels().map(n => n.id);
+        const i = list.indexOf(this.selectedNovelId);
+        if (i > 0) await this.goToDetail(list[i - 1]);
         else this.showToast('이전 작품이 없습니다.', 'error');
     }
     async goToNextNovel() {
-        const list = this.getFilteredNovels();
-        const i = list.findIndex(n => n.id === this.selectedNovelId);
-        if (i !== -1 && i < list.length - 1) await this.goToDetail(list[i + 1].id);
+        const list = this._lastFilteredIds || this.getFilteredNovels().map(n => n.id);
+        const i = list.indexOf(this.selectedNovelId);
+        if (i !== -1 && i < list.length - 1) await this.goToDetail(list[i + 1]);
         else this.showToast('다음 작품이 없습니다.', 'error');
     }
 
@@ -707,9 +820,9 @@ class NovelArchiveApp {
 
                     <div class="tag-filter-row">
                         <span class="tag-filter-label">🏷️ 태그 필터:</span>
-                        <button onclick="app.filterByTag('전체')" class="tag-pill ${this.selectedTag === '전체' ? 'active' : ''}">전체</button>
+                        <button data-action="filter-tag" data-tag="전체" class="tag-pill ${this.selectedTag === '전체' ? 'active' : ''}">전체</button>
                         ${allTags.map(tag => `
-                            <button onclick="app.filterByTag('${escapeHtml(tag).replace(/'/g, "\\'")}')"
+                            <button data-action="filter-tag" data-tag="${escapeHtml(tag)}"
                                     class="tag-pill ${this.selectedTag === tag ? 'active' : ''}">
                                 ${escapeHtml(tag)}
                             </button>`).join('')}
@@ -721,7 +834,7 @@ class NovelArchiveApp {
 
     renderNovelRow(novel) {
         const tags = novel.keyword ? novel.keyword.split(',').map(t => t.trim()).filter(Boolean) : [];
-        const hasSettings = false; // meta만으로 판단 못함 → 표시 X (필요 시 별도 meta 필드)
+        const hasSettings = novel.hasRichSettings === true;   // meta 스토어 기반 🏷️
         const totalChars = novel.totalChars || 0;
         const chapterCount = novel.chapterCount || 0;
         return `
@@ -734,11 +847,12 @@ class NovelArchiveApp {
                     <a href="javascript:void(0)" onclick="app.goToDetail(${novel.id})" class="title-link">
                         <span class="color-dot" style="background-color:${novel.color || '#f8c8dc'};"></span>
                         ${escapeHtml(novel.title)}
+                        ${hasSettings ? '<span class="badge-icon" title="설정집 100자 이상">🏷️</span>' : ''}
                     </a>
                 </td>
                 <td class="tag-cell">
                     ${tags.length
-                        ? tags.map(t => `<span class="tag-inline" onclick="event.stopPropagation(); app.filterByTag('${escapeHtml(t).replace(/'/g, "\\'")}')">*${escapeHtml(t)}</span>`).join(' ')
+                        ? tags.map(t => `<span class="tag-inline" data-action="filter-tag" data-tag="${escapeHtml(t)}">*${escapeHtml(t)}</span>`).join(' ')
                         : '-'}
                 </td>
                 <td class="cell-center chapter-count">${chapterCount}화</td>
@@ -825,23 +939,27 @@ class NovelArchiveApp {
         const ids = Array.from(document.querySelectorAll('.novel-checkbox:checked')).map(cb => parseInt(cb.dataset.id));
 
         const nowISO = new Date().toISOString();
-        // 개별 저장 (clear + put 안함)
-        for (const id of ids) {
-            const meta = await this.db.getMeta(id);
+        const metas = await Promise.all(ids.map(id => this.db.getMeta(id)));
+
+        const tx = this.db.db.transaction(this.db.metaStore, 'readwrite');
+        const store = tx.objectStore(this.db.metaStore);
+
+        for (const meta of metas) {
             if (!meta) continue;
             const existing = meta.keyword ? meta.keyword.split(',').map(t => t.trim()).filter(Boolean) : [];
             newTags.forEach(nt => { if (!existing.includes(nt)) existing.push(nt); });
             meta.keyword = existing.join(', ');
             meta.updatedAt = nowISO;
-            // meta만 변경이므로 content 불필요
-            const idx = this.novels.findIndex(n => n.id === id);
+            store.put(meta);
+            const idx = this.novels.findIndex(n => n.id === meta.id);
             if (idx !== -1) this.novels[idx] = meta;
-            await new Promise((resolve, reject) => {
-                const tx = this.db.db.transaction(this.db.metaStore, 'readwrite');
-                tx.objectStore(this.db.metaStore).put(meta);
-                tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
-            });
         }
+
+        await new Promise((res, rej) => {
+            tx.oncomplete = res;
+            tx.onerror = () => rej(tx.error);
+        });
+
         this.rebuildTagCache();
         this.closeModal();
         this.showToast('태그가 일괄 추가되었습니다.');
@@ -854,21 +972,27 @@ class NovelArchiveApp {
         const ids = Array.from(document.querySelectorAll('.novel-checkbox:checked')).map(cb => parseInt(cb.dataset.id));
         const nowISO = new Date().toISOString();
 
-        for (const id of ids) {
-            const meta = await this.db.getMeta(id);
+        const metas = await Promise.all(ids.map(id => this.db.getMeta(id)));
+
+        const tx = this.db.db.transaction(this.db.metaStore, 'readwrite');
+        const store = tx.objectStore(this.db.metaStore);
+
+        for (const meta of metas) {
             if (!meta || !meta.keyword) continue;
             let existing = meta.keyword.split(',').map(t => t.trim()).filter(Boolean);
             existing = existing.filter(t => t !== tag);
             meta.keyword = existing.join(', ');
             meta.updatedAt = nowISO;
-            const idx = this.novels.findIndex(n => n.id === id);
+            store.put(meta);
+            const idx = this.novels.findIndex(n => n.id === meta.id);
             if (idx !== -1) this.novels[idx] = meta;
-            await new Promise((resolve, reject) => {
-                const tx = this.db.db.transaction(this.db.metaStore, 'readwrite');
-                tx.objectStore(this.db.metaStore).put(meta);
-                tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
-            });
         }
+
+        await new Promise((res, rej) => {
+            tx.oncomplete = res;
+            tx.onerror = () => rej(tx.error);
+        });
+
         this.rebuildTagCache();
         this.closeModal();
         this.showToast(`'${tag}' 태그가 삭제되었습니다.`);
@@ -880,7 +1004,7 @@ class NovelArchiveApp {
         if (checked.length === 0) { this.showToast('삭제할 작품을 선택하세요.', 'error'); return; }
         if (!confirm(`선택한 ${checked.length}개의 작품을 삭제하시겠습니까?`)) return;
         const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id));
-        for (const id of ids) await this.db.deleteNovel(id);
+        await Promise.all(ids.map(id => this.db.deleteNovel(id)));
         this.novels = await this.db.getAllMetas();
         this.rebuildTagCache();
         this.showToast('선택한 작품이 삭제되었습니다.');
@@ -939,28 +1063,36 @@ class NovelArchiveApp {
         }
     }
 
+    _renderModalShell({ title, formId, onsubmit, body, submitLabel = '등록', submitClass = 'btn btn-primary' }) {
+        return `
+            <div class="modal-header">
+                <h3 class="modal-title">${title}</h3>
+                <button onclick="app.closeModal()" class="modal-close">✕</button>
+            </div>
+            <form id="${formId}" class="modal-body" onsubmit="${onsubmit}">
+                ${body}
+            </form>
+            <div class="modal-footer">
+                <button type="button" onclick="app.closeModal()" class="btn btn-soft">취소</button>
+                <button type="submit" form="${formId}" class="${submitClass}">${submitLabel}</button>
+            </div>
+        `;
+    }
+
     /* ============================================================
        새 작품 등록
        ============================================================ */
     openNewPostModal() {
-        const content = document.getElementById('modalContent');
         const defColor = this.lastInput.color || '#f8c8dc';
-        content.innerHTML = `
-            <div class="modal-header">
-                <h3 class="modal-title">새 작품 등록</h3>
-                <button onclick="app.closeModal()" class="modal-close">✕</button>
-            </div>
-            <form onsubmit="app.handleCreatePost(event)" class="modal-body">
+        document.getElementById('modalContent').innerHTML = this._renderModalShell({
+            title: '새 작품 등록',
+            formId: 'formNewPost',
+            onsubmit: 'app.handleCreatePost(event)',
+            submitLabel: '등록하기',
+            body: `
                 <div class="form-group">
                     <label class="form-label">색상 라벨</label>
-                    <div class="color-grid">
-                        ${COLOR_PALETTE.map(c => `
-                            <label class="color-opt">
-                                <input type="radio" name="postColor" value="${c.hex}" ${c.hex === defColor ? 'checked' : ''}>
-                                <span class="color-dot" style="background-color:${c.hex};"></span>
-                                <span class="color-name">${c.name}</span>
-                            </label>`).join('')}
-                    </div>
+                    <div class="color-grid">${renderColorGrid('postColor', defColor)}</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">제목</label>
@@ -983,22 +1115,12 @@ class NovelArchiveApp {
                 <div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
                         <label class="form-label" style="margin:0;">본문 내용</label>
-                        <div style="display:flex; gap:0.5rem;">
-                            <button type="button" onclick="app.triggerAutoCorrect('postContent')" class="gold-button">✨ 자동 교정</button>
-                            <label class="cyan-button" style="cursor:pointer;">
-                                텍스트 업로드
-                                <input type="file" accept=".txt" onchange="app.handleTextFileUpload(event)" hidden>
-                            </label>
-                        </div>
+                        ${autoCorrectBlock('postContent', 'handleTextFileUpload')}
                     </div>
                     <textarea id="postContent" class="textarea" rows="16" placeholder="본문을 입력하거나 텍스트 파일을 업로드하세요."></textarea>
                 </div>
-                <div class="modal-footer" style="margin:-1.5rem; margin-top:1.25rem;">
-                    <button type="button" onclick="app.closeModal()" class="btn btn-soft">취소</button>
-                    <button type="submit" class="btn btn-primary">등록하기</button>
-                </div>
-            </form>
-        `;
+            `,
+        });
         document.getElementById('modalOverlay').classList.remove('hidden');
     }
 
@@ -1052,26 +1174,19 @@ class NovelArchiveApp {
     /* ============================================================
        작품 정보 수정
        ============================================================ */
-    async openEditNovelModal(novelId) {
+    openEditNovelModal(novelId) {
         const novel = this.currentNovel;
         if (!novel) return;
-        const content = document.getElementById('modalContent');
-        content.innerHTML = `
-            <div class="modal-header">
-                <h3 class="modal-title">작품 정보 수정</h3>
-                <button onclick="app.closeModal()" class="modal-close">✕</button>
-            </div>
-            <form onsubmit="app.handleEditNovelSubmit(event, ${novelId})" class="modal-body">
+        document.getElementById('modalContent').innerHTML = this._renderModalShell({
+            title: '작품 정보 수정',
+            formId: 'formEditNovel',
+            onsubmit: `app.handleEditNovelSubmit(event, ${novelId})`,
+            submitLabel: '수정 완료',
+            submitClass: 'btn btn-purple',
+            body: `
                 <div class="form-group">
                     <label class="form-label">색상 라벨</label>
-                    <div class="color-grid">
-                        ${COLOR_PALETTE.map(c => `
-                            <label class="color-opt">
-                                <input type="radio" name="editNovelColor" value="${c.hex}" ${c.hex.toLowerCase() === (novel.color || '').toLowerCase() ? 'checked' : ''}>
-                                <span class="color-dot" style="background-color:${c.hex};"></span>
-                                <span class="color-name">${c.name}</span>
-                            </label>`).join('')}
-                    </div>
+                    <div class="color-grid">${renderColorGrid('editNovelColor', novel.color)}</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">제목</label>
@@ -1085,12 +1200,8 @@ class NovelArchiveApp {
                     <label class="form-label">회차당 목표 글자수</label>
                     <input type="number" id="editNovelTarget" class="input" value="${novel.targetChars || 5000}" step="500">
                 </div>
-                <div class="modal-footer" style="margin:-1.5rem; margin-top:1.25rem;">
-                    <button type="button" onclick="app.closeModal()" class="btn btn-soft">취소</button>
-                    <button type="submit" class="btn btn-purple">수정 완료</button>
-                </div>
-            </form>
-        `;
+            `,
+        });
         document.getElementById('modalOverlay').classList.remove('hidden');
     }
 
@@ -1171,16 +1282,14 @@ class NovelArchiveApp {
 
     /* ---------------- 회차 패널 ---------------- */
     renderChaptersPanel() {
-        const novel = this.currentNovel;
-        const currentChapter = novel.chapters[this.selectedChapterIndex];
-
+        const chapter = this.currentNovel.chapters[this.selectedChapterIndex];
         return `
             <div class="detail-grid">
                 <div class="panel sidebar" id="chapterSidebar">
                     ${this.renderChapterSidebarInner()}
                 </div>
                 <div class="panel content-panel" id="chapterContentPanel">
-                    ${this.renderChapterContentInner(currentChapter)}
+                    ${this.renderChapterContentInner(chapter)}
                 </div>
             </div>
         `;
@@ -1298,16 +1407,14 @@ class NovelArchiveApp {
 
     /* ---------------- 설정 패널 ---------------- */
     renderSettingsPanel() {
-        const novel = this.currentNovel;
-        const currentSetting = novel.settings[this.selectedSettingIndex];
-
+        const setting = this.currentNovel.settings[this.selectedSettingIndex];
         return `
             <div class="detail-grid">
                 <div class="panel sidebar" id="settingSidebar">
                     ${this.renderSettingSidebarInner()}
                 </div>
                 <div class="panel content-panel" id="settingContentPanel">
-                    ${this.renderSettingContentInner(currentSetting)}
+                    ${this.renderSettingContentInner(setting)}
                 </div>
             </div>
         `;
@@ -1370,8 +1477,7 @@ class NovelArchiveApp {
     refreshChapterContent() {
         const el = document.getElementById('chapterContentPanel');
         if (el && this.currentNovel) {
-            const ch = this.currentNovel.chapters[this.selectedChapterIndex];
-            el.innerHTML = this.renderChapterContentInner(ch);
+            el.innerHTML = this.renderChapterContentInner(this.currentNovel.chapters[this.selectedChapterIndex]);
         }
     }
     refreshSettingSidebar() {
@@ -1381,12 +1487,10 @@ class NovelArchiveApp {
     refreshSettingContent() {
         const el = document.getElementById('settingContentPanel');
         if (el && this.currentNovel) {
-            const st = this.currentNovel.settings[this.selectedSettingIndex];
-            el.innerHTML = this.renderSettingContentInner(st);
+            el.innerHTML = this.renderSettingContentInner(this.currentNovel.settings[this.selectedSettingIndex]);
         }
     }
 
-    // 스타일만 즉시 반영 (전체 렌더 X)
     applyContentStyles() {
         const el = document.getElementById('chapterContentDisplay');
         if (el) {
@@ -1431,7 +1535,6 @@ class NovelArchiveApp {
     selectChapter(idx) {
         if (this.selectedChapterIndex === idx) return;
         this.selectedChapterIndex = idx;
-        // 사이드바 active만 갱신
         document.querySelectorAll('[data-chapter-btn]').forEach(btn => {
             btn.classList.toggle('active', parseInt(btn.dataset.idx) === idx);
         });
@@ -1462,15 +1565,12 @@ class NovelArchiveApp {
 
             await this.persistCurrentNovel();
 
-            // 표시 갱신 (부분)
             const updateEl = document.getElementById('updatedAtDisplay');
             if (updateEl) updateEl.textContent = this.formatDate(nowISO);
 
-            // 사이드바 글자수도 갱신
             const sidebarBtn = document.querySelector(`[data-chapter-btn][data-idx="${chapterIndex}"] .list-item-meta`);
             if (sidebarBtn) sidebarBtn.textContent = `${newContent.length}자`;
 
-            // 진행률 갱신
             const targetChars = this.currentNovel.targetChars || 5000;
             const pct = Math.min(100, Math.round((newContent.length / targetChars) * 100));
             const fill = document.getElementById('progressFill');
@@ -1525,15 +1625,13 @@ class NovelArchiveApp {
        회차 추가/수정/삭제
        ============================================================ */
     openAddChapterModal(novelId) {
-        const novel = this.currentNovel;
-        const nextNum = novel.chapters.length + 1;
-        const content = document.getElementById('modalContent');
-        content.innerHTML = `
-            <div class="modal-header">
-                <h3 class="modal-title">새 회차 추가</h3>
-                <button onclick="app.closeModal()" class="modal-close">✕</button>
-            </div>
-            <form onsubmit="app.handleAddChapterSubmit(event, ${novelId})" class="modal-body">
+        const nextNum = this.currentNovel.chapters.length + 1;
+        document.getElementById('modalContent').innerHTML = this._renderModalShell({
+            title: '새 회차 추가',
+            formId: 'formAddChapter',
+            onsubmit: `app.handleAddChapterSubmit(event, ${novelId})`,
+            submitLabel: '추가',
+            body: `
                 <div class="form-group">
                     <label class="form-label">회차 제목</label>
                     <input type="text" id="chapTitle" class="input" value="${nextNum}화." required>
@@ -1541,22 +1639,12 @@ class NovelArchiveApp {
                 <div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
                         <label class="form-label" style="margin:0;">본문</label>
-                        <div style="display:flex; gap:0.5rem;">
-                            <button type="button" onclick="app.triggerAutoCorrect('chapContent')" class="gold-button">✨ 자동 교정</button>
-                            <label class="cyan-button" style="cursor:pointer;">
-                                텍스트 업로드
-                                <input type="file" accept=".txt" onchange="app.handleChapTextFileUpload(event)" hidden>
-                            </label>
-                        </div>
+                        ${autoCorrectBlock('chapContent', 'handleChapTextFileUpload')}
                     </div>
                     <textarea id="chapContent" class="textarea" rows="8"></textarea>
                 </div>
-                <div class="modal-footer" style="margin:-1.5rem; margin-top:1.25rem;">
-                    <button type="button" onclick="app.closeModal()" class="btn btn-soft">취소</button>
-                    <button type="submit" class="btn btn-primary">추가</button>
-                </div>
-            </form>
-        `;
+            `,
+        });
         document.getElementById('modalOverlay').classList.remove('hidden');
     }
 
@@ -1594,15 +1682,13 @@ class NovelArchiveApp {
     }
 
     openEditChapterModal(novelId, chapterIndex) {
-        const novel = this.currentNovel;
-        const ch = novel.chapters[chapterIndex];
-        const content = document.getElementById('modalContent');
-        content.innerHTML = `
-            <div class="modal-header">
-                <h3 class="modal-title">회차 수정</h3>
-                <button onclick="app.closeModal()" class="modal-close">✕</button>
-            </div>
-            <form onsubmit="app.handleEditChapterSubmit(event, ${novelId}, ${chapterIndex})" class="modal-body">
+        const ch = this.currentNovel.chapters[chapterIndex];
+        document.getElementById('modalContent').innerHTML = this._renderModalShell({
+            title: '회차 수정',
+            formId: 'formEditChapter',
+            onsubmit: `app.handleEditChapterSubmit(event, ${novelId}, ${chapterIndex})`,
+            submitLabel: '저장',
+            body: `
                 <div class="form-group">
                     <label class="form-label">회차 제목</label>
                     <input type="text" id="editChapTitle" class="input" value="${escapeHtml(ch.title)}" required>
@@ -1610,22 +1696,12 @@ class NovelArchiveApp {
                 <div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
                         <label class="form-label" style="margin:0;">본문</label>
-                        <div style="display:flex; gap:0.5rem;">
-                            <button type="button" onclick="app.triggerAutoCorrect('editChapContent')" class="gold-button">✨ 자동 교정</button>
-                            <label class="cyan-button" style="cursor:pointer;">
-                                텍스트 교체
-                                <input type="file" accept=".txt" onchange="app.handleEditChapTextFileUpload(event)" hidden>
-                            </label>
-                        </div>
+                        ${autoCorrectBlock('editChapContent', 'handleEditChapTextFileUpload')}
                     </div>
                     <textarea id="editChapContent" class="textarea" rows="24">${escapeHtml(ch.content)}</textarea>
                 </div>
-                <div class="modal-footer" style="margin:-1.5rem; margin-top:1.25rem;">
-                    <button type="button" onclick="app.closeModal()" class="btn btn-soft">취소</button>
-                    <button type="submit" class="btn btn-primary">저장</button>
-                </div>
-            </form>
-        `;
+            `,
+        });
         document.getElementById('modalOverlay').classList.remove('hidden');
     }
 
@@ -1677,13 +1753,12 @@ class NovelArchiveApp {
        설정 추가/수정/삭제
        ============================================================ */
     openAddSettingModal(novelId) {
-        const content = document.getElementById('modalContent');
-        content.innerHTML = `
-            <div class="modal-header">
-                <h3 class="modal-title">새 설정 노트 추가</h3>
-                <button onclick="app.closeModal()" class="modal-close">✕</button>
-            </div>
-            <form onsubmit="app.handleAddSettingSubmit(event, ${novelId})" class="modal-body">
+        document.getElementById('modalContent').innerHTML = this._renderModalShell({
+            title: '새 설정 노트 추가',
+            formId: 'formAddSetting',
+            onsubmit: `app.handleAddSettingSubmit(event, ${novelId})`,
+            submitLabel: '추가',
+            body: `
                 <div class="form-group">
                     <label class="form-label">설정 제목</label>
                     <input type="text" id="settingTitle" class="input" placeholder="예: 주요 인물 소개" required>
@@ -1698,12 +1773,8 @@ class NovelArchiveApp {
                     </div>
                     <textarea id="settingContent" class="textarea" rows="8"></textarea>
                 </div>
-                <div class="modal-footer" style="margin:-1.5rem; margin-top:1.25rem;">
-                    <button type="button" onclick="app.closeModal()" class="btn btn-soft">취소</button>
-                    <button type="submit" class="btn btn-primary">추가</button>
-                </div>
-            </form>
-        `;
+            `,
+        });
         document.getElementById('modalOverlay').classList.remove('hidden');
     }
 
@@ -1741,16 +1812,14 @@ class NovelArchiveApp {
     }
 
     openEditSettingModal(novelId, settingIndex) {
-        const novel = this.currentNovel;
-        if (!novel || !novel.settings[settingIndex]) return;
-        const st = novel.settings[settingIndex];
-        const content = document.getElementById('modalContent');
-        content.innerHTML = `
-            <div class="modal-header">
-                <h3 class="modal-title">설정 노트 수정</h3>
-                <button onclick="app.closeModal()" class="modal-close">✕</button>
-            </div>
-            <form onsubmit="app.handleEditSettingSubmit(event, ${novelId}, ${settingIndex})" class="modal-body">
+        const st = this.currentNovel && this.currentNovel.settings[settingIndex];
+        if (!st) return;
+        document.getElementById('modalContent').innerHTML = this._renderModalShell({
+            title: '설정 노트 수정',
+            formId: 'formEditSetting',
+            onsubmit: `app.handleEditSettingSubmit(event, ${novelId}, ${settingIndex})`,
+            submitLabel: '저장',
+            body: `
                 <div class="form-group">
                     <label class="form-label">설정 제목</label>
                     <input type="text" id="editSettingTitle" class="input" value="${escapeHtml(st.title)}" required>
@@ -1765,12 +1834,8 @@ class NovelArchiveApp {
                     </div>
                     <textarea id="editSettingContent" class="textarea" rows="24">${escapeHtml(st.content)}</textarea>
                 </div>
-                <div class="modal-footer" style="margin:-1.5rem; margin-top:1.25rem;">
-                    <button type="button" onclick="app.closeModal()" class="btn btn-soft">취소</button>
-                    <button type="submit" class="btn btn-primary">저장</button>
-                </div>
-            </form>
-        `;
+            `,
+        });
         document.getElementById('modalOverlay').classList.remove('hidden');
     }
 
@@ -1835,7 +1900,7 @@ class NovelArchiveApp {
 
         await this.persistCurrentNovel();
         this.showToast('본문이 자동 교정되었습니다!');
-        // 메타만 부분 갱신
+
         const meta = document.querySelector(`[data-chapter-btn][data-idx="${chapterIndex}"] .list-item-meta`);
         if (meta) meta.textContent = `${corrected.length}자`;
         const updEl = document.getElementById('updatedAtDisplay');
@@ -1843,6 +1908,7 @@ class NovelArchiveApp {
     }
 
     handleInternalSearch(query) {
+        if (this.activeDetailTab !== 'chapters') return;
         const displayEl = document.getElementById('chapterContentDisplay');
         if (!displayEl || !this.currentNovel) return;
         const raw = this.currentNovel.chapters[this.selectedChapterIndex].content || '';
