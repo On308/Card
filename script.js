@@ -84,12 +84,42 @@ class NovelDatabase {
         });
     }
 
+    async getNovelById(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(this.storeName, 'readonly');
+            const store = transaction.objectStore(this.storeName);
+            const request = store.get(id);
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async saveNovel(novel) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(this.storeName, 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            store.put(novel);
+            transaction.oncomplete = () => resolve(true);
+            transaction.onerror = () => reject(transaction.error);
+        });
+    }
+
     async saveAllNovels(novels) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(this.storeName, 'readwrite');
             const store = transaction.objectStore(this.storeName);
             store.clear();
             novels.forEach(novel => store.put(novel));
+            transaction.oncomplete = () => resolve(true);
+            transaction.onerror = () => reject(transaction.error);
+        });
+    }
+
+    async deleteNovel(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(this.storeName, 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            store.delete(id);
             transaction.oncomplete = () => resolve(true);
             transaction.onerror = () => reject(transaction.error);
         });
@@ -115,7 +145,8 @@ class NovelArchiveApp {
 
     constructor() {
         this.db = new NovelDatabase();
-        this.novels = [];
+        this.novels = []; // 목록 화면용 메타데이터 (본문 제외 또는 가벼운 상태)
+        this.currentNovel = null; // 상세 화면에서 다루는 현재 작품의 전체 데이터(본문 포함)
         this.currentView = 'list';
         this.selectedNovelId = null;
         this.selectedChapterIndex = 0;
@@ -167,11 +198,11 @@ class NovelArchiveApp {
     async initApp() {
         try {
             await this.db.init();
-            this.novels = await this.db.getAllNovels();
+            let allRawNovels = await this.db.getAllNovels();
             
-            if (this.novels.length === 0) {
+            if (allRawNovels.length === 0) {
                 const nowISO = new Date().toISOString();
-                this.novels = [
+                allRawNovels = [
                     {
                         id: 1,
                         color: '#f8c8dc',
@@ -189,9 +220,9 @@ class NovelArchiveApp {
                         updatedAt: nowISO
                     }
                 ];
-                await this.db.saveAllNovels(this.novels);
+                await this.db.saveAllNovels(allRawNovels);
             } else {
-                this.novels.forEach(n => {
+                allRawNovels.forEach(n => {
                     if (!n.settings && n.worldbuilding) {
                         n.settings = [{ title: '세계관 및 설정', content: n.worldbuilding }];
                     } else if (!n.settings) {
@@ -208,6 +239,8 @@ class NovelArchiveApp {
                 });
             }
             
+            this.novels = allRawNovels;
+
             const lastMem = localStorage.getItem('novel_archive_last_input');
             if (lastMem) this.lastInput = JSON.parse(lastMem);
 
@@ -262,8 +295,9 @@ class NovelArchiveApp {
                     return;
                 }
             }
+            const fullData = await this.db.getAllNovels();
             const writable = await this.fileHandle.createWritable();
-            await writable.write(JSON.stringify(this.novels, null, 2));
+            await writable.write(JSON.stringify(fullData, null, 2));
             await writable.close();
             this.showToast('연결된 파일에 성공적으로 저장되었습니다.');
         } catch (err) {
@@ -286,8 +320,9 @@ class NovelArchiveApp {
                 }]
             });
             this.fileHandle = handle;
+            const fullData = await this.db.getAllNovels();
             const writable = await handle.createWritable();
-            await writable.write(JSON.stringify(this.novels, null, 2));
+            await writable.write(JSON.stringify(fullData, null, 2));
             await writable.close();
             const file = await handle.getFile();
             this.updateFileButtonsState(true, file.name);
@@ -315,19 +350,35 @@ class NovelArchiveApp {
         }
     }
 
-    async persistNovels() {
+    async persistCurrentNovel() {
+        if (this.currentNovel) {
+            await this.db.saveNovel(this.currentNovel);
+            // 메모리 내 목록 정보도 최신화
+            const idx = this.novels.findIndex(n => n.id === this.currentNovel.id);
+            if (idx !== -1) {
+                this.novels[idx] = JSON.parse(JSON.stringify(this.currentNovel));
+            }
+        }
+        this.checkFileAutoSave();
+    }
+
+    async persistAllNovels() {
         await this.db.saveAllNovels(this.novels);
+        this.checkFileAutoSave();
+    }
+
+    async checkFileAutoSave() {
         if (this.fileHandle) {
             try {
                 if ((await this.fileHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
                     await this.fileHandle.requestPermission({ mode: 'readwrite' });
                 }
+                const fullData = await this.db.getAllNovels();
                 const writable = await this.fileHandle.createWritable();
-                await writable.write(JSON.stringify(this.novels, null, 2));
+                await writable.write(JSON.stringify(fullData, null, 2));
                 await writable.close();
             } catch (e) {
                 console.error('파일 자동 백업 실패:', e);
-                this.showToast('파일 백업 권한이 유실되었거나 저장에 실패했습니다.', 'error');
             }
         }
     }
@@ -383,9 +434,9 @@ class NovelArchiveApp {
         return `${yyyy}.${mm}.${dd} ${hh}:${min}:${ss}`;
     }
 
-    calculateTotalChars(novel) {
-        if (!novel.chapters || novel.chapters.length === 0) return 0;
-        return novel.chapters.reduce((acc, ch) => acc + (ch.content ? ch.content.length : 0), 0);
+    calculateTotalChars(novelOrMeta) {
+        if (!novelOrMeta.chapters || novelOrMeta.chapters.length === 0) return 0;
+        return novelOrMeta.chapters.reduce((acc, ch) => acc + (ch.content ? ch.content.length : 0), 0);
     }
 
     calculateCharsWithoutSpaces(text) {
@@ -393,9 +444,9 @@ class NovelArchiveApp {
         return text.replace(/\s+/g, '').length;
     }
 
-    hasValidSettings(novel) {
-        if (!novel.settings || !Array.isArray(novel.settings)) return false;
-        const totalSettingChars = novel.settings.reduce((acc, st) => acc + (st.content ? st.content.length : 0), 0);
+    hasValidSettings(novelOrMeta) {
+        if (!novelOrMeta.settings || !Array.isArray(novelOrMeta.settings)) return false;
+        const totalSettingChars = novelOrMeta.settings.reduce((acc, st) => acc + (st.content ? st.content.length : 0), 0);
         return totalSettingChars >= 100;
     }
 
@@ -411,8 +462,7 @@ class NovelArchiveApp {
         let filtered = this.novels.filter(n => {
             const matchesSearch = !this.searchQuery || 
                 n.title.toLowerCase().includes(this.searchQuery) || 
-                (n.keyword && n.keyword.toLowerCase().includes(this.searchQuery)) ||
-                n.chapters.some(c => c.content.toLowerCase().includes(this.searchQuery));
+                (n.keyword && n.keyword.toLowerCase().includes(this.searchQuery));
             
             if (!matchesSearch) return false;
 
@@ -467,10 +517,17 @@ class NovelArchiveApp {
     goToList() {
         this.currentView = 'list';
         this.selectedNovelId = null;
+        this.currentNovel = null;
         this.render();
     }
 
-    goToDetail(novelId) {
+    async goToDetail(novelId) {
+        this.showToast('작품 불러오는 중...', 'success');
+        this.currentNovel = await this.db.getNovelById(novelId);
+        if (!this.currentNovel) {
+            this.showToast('작품을 찾을 수 없습니다.', 'error');
+            return;
+        }
         this.currentView = 'detail';
         this.selectedNovelId = novelId;
         this.selectedChapterIndex = 0;
@@ -479,38 +536,31 @@ class NovelArchiveApp {
         this.render();
     }
 
-    goToPrevNovel() {
+    async goToPrevNovel() {
         const filteredList = this.getFilteredNovels();
         const currentIndex = filteredList.findIndex(n => n.id === this.selectedNovelId);
         if (currentIndex > 0) {
-            this.goToDetail(filteredList[currentIndex - 1].id);
+            await this.goToDetail(filteredList[currentIndex - 1].id);
         } else {
             this.showToast('이전 작품이 없습니다.', 'error');
         }
     }
 
-    goToNextNovel() {
+    async goToNextNovel() {
         const filteredList = this.getFilteredNovels();
         const currentIndex = filteredList.findIndex(n => n.id === this.selectedNovelId);
         if (currentIndex !== -1 && currentIndex < filteredList.length - 1) {
-            this.goToDetail(filteredList[currentIndex + 1].id);
+            await this.goToDetail(filteredList[currentIndex + 1].id);
         } else {
             this.showToast('다음 작품이 없습니다.', 'error');
         }
     }
 
-    handleSearch(query) {
-        this.searchQuery = query.toLowerCase();
-        if (this.currentView === 'list') this.render();
-    }
-
     handleInternalSearch(query) {
         const displayEl = document.getElementById('chapterContentDisplay');
-        if (!displayEl) return;
+        if (!displayEl || !this.currentNovel) return;
         
-        const novel = this.novels.find(n => n.id === this.selectedNovelId);
-        if (!novel || !novel.chapters[this.selectedChapterIndex]) return;
-        const rawContent = novel.chapters[this.selectedChapterIndex].content || '';
+        const rawContent = this.currentNovel.chapters[this.selectedChapterIndex].content || '';
 
         if (!query.trim()) {
             displayEl.innerText = rawContent.trim();
@@ -638,7 +688,7 @@ class NovelArchiveApp {
                 <div class="pastel-panel rounded-xl p-4 flex flex-col gap-3">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div class="flex items-center gap-2 flex-1 min-w-[320px]">
-                            <input type="text" id="searchInput" placeholder="🔍 제목, 태그 또는 본문 내용 검색" value="${escapeHtml(this.searchQuery)}" onkeydown="if(event.key==='Enter') app.executeSearch()" class="flex-1 bg-white dark:bg-[#21252b] border border-[#f0e6ed] dark:border-gray-700 text-sm rounded-lg px-4 py-2 text-gray-900 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:border-[#f8b195]">
+                            <input type="text" id="searchInput" placeholder="🔍 제목 또는 태그 검색" value="${escapeHtml(this.searchQuery)}" onkeydown="if(event.key==='Enter') app.executeSearch()" class="flex-1 bg-white dark:bg-[#21252b] border border-[#f0e6ed] dark:border-gray-700 text-sm rounded-lg px-4 py-2 text-gray-900 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:border-[#f8b195]">
                             <button onclick="app.executeSearch()" class="px-4 py-2 bg-[#f8b195] hover:bg-[#f67280] text-white text-sm font-medium rounded-lg shrink-0 transition shadow">검색</button>
                             <button onclick="app.resetSearch()" class="px-4 py-2 bg-white dark:bg-[#21252b] hover:bg-gray-100 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg shrink-0 transition border border-[#f0e6ed] dark:border-gray-700">초기화</button>
                         </div>
@@ -754,7 +804,8 @@ class NovelArchiveApp {
         const ids = Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
 
         const nowISO = new Date().toISOString();
-        this.novels.forEach(n => {
+        const allData = await this.db.getAllNovels();
+        allData.forEach(n => {
             if (ids.includes(n.id)) {
                 let existingTags = n.keyword ? n.keyword.split(',').map(t => t.trim()).filter(Boolean) : [];
                 newTags.forEach(nt => {
@@ -765,7 +816,8 @@ class NovelArchiveApp {
             }
         });
 
-        await this.persistNovels();
+        await this.db.saveAllNovels(allData);
+        this.novels = allData;
         this.closeModal();
         this.showToast('선택한 작품에 태그가 일괄 추가되었습니다.');
         this.render();
@@ -781,7 +833,8 @@ class NovelArchiveApp {
         const ids = Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
 
         const nowISO = new Date().toISOString();
-        this.novels.forEach(n => {
+        const allData = await this.db.getAllNovels();
+        allData.forEach(n => {
             if (ids.includes(n.id) && n.keyword) {
                 let existingTags = n.keyword.split(',').map(t => t.trim()).filter(Boolean);
                 existingTags = existingTags.filter(t => t !== tagToRemove);
@@ -790,7 +843,8 @@ class NovelArchiveApp {
             }
         });
 
-        await this.persistNovels();
+        await this.db.saveAllNovels(allData);
+        this.novels = allData;
         this.closeModal();
         this.showToast(`선택한 작품에서 '${tagToRemove}' 태그가 삭제되었습니다.`);
         this.render();
@@ -805,14 +859,17 @@ class NovelArchiveApp {
         if (!confirm(`선택한 ${checkboxes.length}개의 작품을 삭제하시겠습니까?`)) return;
 
         const idsToDelete = Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
-        this.novels = this.novels.filter(n => !idsToDelete.includes(n.id));
-        await this.persistNovels();
+        for (let id of idsToDelete) {
+            await this.db.deleteNovel(id);
+        }
+        this.novels = await this.db.getAllNovels();
         this.showToast('선택한 작품이 삭제되었습니다.');
         this.render();
     }
 
-    downloadJSON() {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.novels, null, 2));
+    async downloadJSON() {
+        const fullData = await this.db.getAllNovels();
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullData, null, 2));
         const downloadAnchor = document.createElement('a');
         downloadAnchor.setAttribute("href", dataStr);
         downloadAnchor.setAttribute("download", `novel_archive_backup_${new Date().toISOString().slice(0,10)}.json`);
@@ -832,8 +889,8 @@ class NovelArchiveApp {
                 const parsed = JSON.parse(e.target.result);
                 if (Array.isArray(parsed)) {
                     if (confirm(`불러온 백업 데이터로 덮어쓰시겠습니까?`)) {
+                        await this.db.saveAllNovels(parsed);
                         this.novels = parsed;
-                        await this.persistNovels();
                         this.showToast('성공적으로 복원되었습니다.');
                         this.render();
                     }
@@ -950,7 +1007,8 @@ class NovelArchiveApp {
         localStorage.setItem('novel_archive_last_input', JSON.stringify(this.lastInput));
 
         const nowISO = new Date().toISOString();
-        const newId = this.novels.length > 0 ? Math.max(...this.novels.map(n => n.id)) + 1 : 1;
+        const allData = await this.db.getAllNovels();
+        const newId = allData.length > 0 ? Math.max(...allData.map(n => n.id)) + 1 : 1;
         const newNovel = {
             id: newId,
             color,
@@ -963,17 +1021,17 @@ class NovelArchiveApp {
             updatedAt: nowISO
         };
 
-        this.novels.unshift(newNovel);
-        await this.persistNovels();
+        await this.db.saveNovel(newNovel);
+        this.novels = await this.db.getAllNovels();
         this.closeModal();
         this.showToast('새 작품이 등록되었습니다.');
         this.render();
     }
 
-    openEditNovelModal(novelId) {
+    async openEditNovelModal(novelId) {
         const modal = document.getElementById('modalOverlay');
         const content = document.getElementById('modalContent');
-        const novel = this.novels.find(n => n.id === novelId);
+        const novel = await this.db.getNovelById(novelId);
         if (!novel) return;
 
         content.innerHTML = `
@@ -1022,14 +1080,19 @@ class NovelArchiveApp {
         const keyword = document.getElementById('editNovelKeyword').value.trim();
         const targetChars = parseInt(document.getElementById('editNovelTarget').value) || 5000;
 
-        const novel = this.novels.find(n => n.id === novelId);
+        let novel = await this.db.getNovelById(novelId);
         if (novel) {
             novel.color = color;
             novel.title = title;
             novel.keyword = keyword;
             novel.targetChars = targetChars;
             novel.updatedAt = new Date().toISOString();
-            await this.persistNovels();
+            
+            await this.db.saveNovel(novel);
+            this.novels = await this.db.getAllNovels();
+            if (this.currentNovel && this.currentNovel.id === novelId) {
+                this.currentNovel = novel;
+            }
             this.closeModal();
             this.showToast('작품 정보가 수정되었습니다.');
             this.render();
@@ -1041,7 +1104,7 @@ class NovelArchiveApp {
     }
 
     renderDetailView() {
-        const novel = this.novels.find(n => n.id === this.selectedNovelId);
+        const novel = this.currentNovel;
         if (!novel) return `<div class="text-center py-20"><button onclick="app.goToList()">목록으로</button></div>`;
         const nowISO = new Date().toISOString();
         if (!novel.chapters || novel.chapters.length === 0) novel.chapters = [{ title: '1화', content: '', createdAt: nowISO, updatedAt: nowISO }];
@@ -1237,20 +1300,19 @@ class NovelArchiveApp {
     }
 
     async correctCurrentChapterContent(novelId, chapterIndex) {
-        const novel = this.novels.find(n => n.id === novelId);
-        if (!novel || !novel.chapters[chapterIndex]) return;
+        if (!this.currentNovel || !this.currentNovel.chapters[chapterIndex]) return;
         
         const displayEl = document.getElementById('chapterContentDisplay');
-        const rawContent = displayEl ? displayEl.innerText : novel.chapters[chapterIndex].content;
+        const rawContent = displayEl ? displayEl.innerText : this.currentNovel.chapters[chapterIndex].content;
         const corrected = applyTextCorrections(rawContent);
 
         if (displayEl) displayEl.innerText = corrected;
         
-        novel.chapters[chapterIndex].content = corrected;
-        novel.chapters[chapterIndex].updatedAt = new Date().toISOString();
-        novel.updatedAt = novel.chapters[chapterIndex].updatedAt;
+        this.currentNovel.chapters[chapterIndex].content = corrected;
+        this.currentNovel.chapters[chapterIndex].updatedAt = new Date().toISOString();
+        this.currentNovel.updatedAt = this.currentNovel.chapters[chapterIndex].updatedAt;
         
-        await this.persistNovels();
+        await this.persistCurrentNovel();
         this.showToast('본문 부호 및 오타가 자동 교정되었습니다!');
         this.render();
     }
@@ -1293,13 +1355,12 @@ class NovelArchiveApp {
     handleAutoSaveContent(novelId, chapterIndex, newContent) {
         clearTimeout(this.autoSaveTimer);
         this.autoSaveTimer = setTimeout(async () => {
-            const novel = this.novels.find(n => n.id === novelId);
-            if (novel && novel.chapters[chapterIndex]) {
+            if (this.currentNovel && this.currentNovel.chapters[chapterIndex]) {
                 const nowISO = new Date().toISOString();
-                novel.chapters[chapterIndex].content = newContent;
-                novel.chapters[chapterIndex].updatedAt = nowISO;
-                novel.updatedAt = nowISO;
-                await this.persistNovels();
+                this.currentNovel.chapters[chapterIndex].content = newContent;
+                this.currentNovel.chapters[chapterIndex].updatedAt = nowISO;
+                this.currentNovel.updatedAt = nowISO;
+                await this.persistCurrentNovel();
                 
                 const updateEl = document.getElementById(`updatedAtDisplay_${chapterIndex}`);
                 if (updateEl) {
@@ -1310,10 +1371,9 @@ class NovelArchiveApp {
     }
 
     async moveChapterTo(novelId, index, action) {
-        const novel = this.novels.find(n => n.id === novelId);
-        if (!novel) return;
+        if (!this.currentNovel) return;
         
-        const chapters = novel.chapters;
+        const chapters = this.currentNovel.chapters;
         const targetChapter = chapters.splice(index, 1)[0];
         
         let newIndex = index;
@@ -1331,17 +1391,16 @@ class NovelArchiveApp {
         this.selectedChapterIndex = newIndex;
         
         const nowISO = new Date().toISOString();
-        novel.updatedAt = nowISO;
-        await this.persistNovels();
+        this.currentNovel.updatedAt = nowISO;
+        await this.persistCurrentNovel();
         this.showToast(`"${targetChapter.title}" 회차 순서가 변경되었습니다.`);
         this.render();
     }
 
     async moveSettingTo(novelId, index, action) {
-        const novel = this.novels.find(n => n.id === novelId);
-        if (!novel) return;
+        if (!this.currentNovel) return;
         
-        const settings = novel.settings;
+        const settings = this.currentNovel.settings;
         const targetSetting = settings.splice(index, 1)[0];
         
         let newIndex = index;
@@ -1359,8 +1418,8 @@ class NovelArchiveApp {
         this.selectedSettingIndex = newIndex;
         
         const nowISO = new Date().toISOString();
-        novel.updatedAt = nowISO;
-        await this.persistNovels();
+        this.currentNovel.updatedAt = nowISO;
+        await this.persistCurrentNovel();
         this.showToast(`"${targetSetting.title}" 설정 순서가 변경되었습니다.`);
         this.render();
     }
@@ -1368,7 +1427,7 @@ class NovelArchiveApp {
     openAddChapterModal(novelId) {
         const modal = document.getElementById('modalOverlay');
         const content = document.getElementById('modalContent');
-        const novel = this.novels.find(n => n.id === novelId);
+        const novel = this.currentNovel;
         const nextNum = novel.chapters.length + 1;
 
         content.innerHTML = `
@@ -1479,15 +1538,14 @@ class NovelArchiveApp {
         const title = document.getElementById('chapTitle').value.trim();
         const content = applyTextCorrections((document.getElementById('chapContent').value || '').trim());
 
-        const novel = this.novels.find(n => n.id === novelId);
-        if (novel) {
+        if (this.currentNovel) {
             const nowISO = new Date().toISOString();
-            novel.chapters.push({ title, content, createdAt: nowISO, updatedAt: nowISO });
-            novel.updatedAt = nowISO;
-            await this.persistNovels();
+            this.currentNovel.chapters.push({ title, content, createdAt: nowISO, updatedAt: nowISO });
+            this.currentNovel.updatedAt = nowISO;
+            await this.persistCurrentNovel();
             this.closeModal();
             this.showToast('새 회차가 추가되었습니다.');
-            this.selectedChapterIndex = novel.chapters.length - 1;
+            this.selectedChapterIndex = this.currentNovel.chapters.length - 1;
             this.render();
         }
     }
@@ -1497,15 +1555,14 @@ class NovelArchiveApp {
         const title = document.getElementById('settingTitle').value.trim();
         const content = (document.getElementById('settingContent').value || '').trim();
 
-        const novel = this.novels.find(n => n.id === novelId);
-        if (novel) {
+        if (this.currentNovel) {
             const nowISO = new Date().toISOString();
-            novel.settings.push({ title, content, createdAt: nowISO, updatedAt: nowISO });
-            novel.updatedAt = nowISO;
-            await this.persistNovels();
+            this.currentNovel.settings.push({ title, content, createdAt: nowISO, updatedAt: nowISO });
+            this.currentNovel.updatedAt = nowISO;
+            await this.persistCurrentNovel();
             this.closeModal();
             this.showToast('새 설정 노트가 추가되었습니다.');
-            this.selectedSettingIndex = novel.settings.length - 1;
+            this.selectedSettingIndex = this.currentNovel.settings.length - 1;
             this.render();
         }
     }
@@ -1513,7 +1570,7 @@ class NovelArchiveApp {
     openEditChapterModal(novelId, chapterIndex) {
         const modal = document.getElementById('modalOverlay');
         const content = document.getElementById('modalContent');
-        const novel = this.novels.find(n => n.id === novelId);
+        const novel = this.currentNovel;
         const chapter = novel.chapters[chapterIndex];
 
         content.innerHTML = `
@@ -1551,7 +1608,7 @@ class NovelArchiveApp {
     openEditSettingModal(novelId, settingIndex) {
         const modal = document.getElementById('modalOverlay');
         const content = document.getElementById('modalContent');
-        const novel = this.novels.find(n => n.id === novelId);
+        const novel = this.currentNovel;
         if (!novel || !novel.settings[settingIndex]) return;
         const setting = novel.settings[settingIndex];
 
@@ -1617,14 +1674,13 @@ class NovelArchiveApp {
         const title = document.getElementById('editChapTitle').value.trim();
         const content = applyTextCorrections((document.getElementById('editChapContent').value || '').trim());
 
-        const novel = this.novels.find(n => n.id === novelId);
-        if (novel && novel.chapters[chapterIndex]) {
+        if (this.currentNovel && this.currentNovel.chapters[chapterIndex]) {
             const nowISO = new Date().toISOString();
-            novel.chapters[chapterIndex].title = title;
-            novel.chapters[chapterIndex].content = content;
-            novel.chapters[chapterIndex].updatedAt = nowISO;
-            novel.updatedAt = nowISO;
-            await this.persistNovels();
+            this.currentNovel.chapters[chapterIndex].title = title;
+            this.currentNovel.chapters[chapterIndex].content = content;
+            this.currentNovel.chapters[chapterIndex].updatedAt = nowISO;
+            this.currentNovel.updatedAt = nowISO;
+            await this.persistCurrentNovel();
             this.closeModal();
             this.showToast('회차가 수정되었습니다.');
             this.render();
@@ -1636,14 +1692,13 @@ class NovelArchiveApp {
         const title = document.getElementById('editSettingTitle').value.trim();
         const content = (document.getElementById('editSettingContent').value || '').trim();
 
-        const novel = this.novels.find(n => n.id === novelId);
-        if (novel && novel.settings[settingIndex]) {
+        if (this.currentNovel && this.currentNovel.settings[settingIndex]) {
             const nowISO = new Date().toISOString();
-            novel.settings[settingIndex].title = title;
-            novel.settings[settingIndex].content = content;
-            novel.settings[settingIndex].updatedAt = nowISO;
-            novel.updatedAt = nowISO;
-            await this.persistNovels();
+            this.currentNovel.settings[settingIndex].title = title;
+            this.currentNovel.settings[settingIndex].content = content;
+            this.currentNovel.settings[settingIndex].updatedAt = nowISO;
+            this.currentNovel.updatedAt = nowISO;
+            await this.persistCurrentNovel();
             this.closeModal();
             this.showToast('설정 노트가 수정되었습니다.');
             this.render();
@@ -1651,49 +1706,46 @@ class NovelArchiveApp {
     }
 
     async deleteCurrentChapter(novelId, chapterIndex) {
-        const novel = this.novels.find(n => n.id === novelId);
-        if (!novel) return;
-        if (novel.chapters.length <= 1) {
+        if (!this.currentNovel) return;
+        if (this.currentNovel.chapters.length <= 1) {
             this.showToast('최소 1개의 회차는 유지되어야 합니다.', 'error');
             return;
         }
-        if (!confirm(`"${novel.chapters[chapterIndex].title}" 회차를 삭제하시겠습니까?`)) return;
+        if (!confirm(`"${this.currentNovel.chapters[chapterIndex].title}" 회차를 삭제하시겠습니까?`)) return;
 
-        novel.chapters.splice(chapterIndex, 1);
-        novel.updatedAt = new Date().toISOString();
-        await this.persistNovels();
+        this.currentNovel.chapters.splice(chapterIndex, 1);
+        this.currentNovel.updatedAt = new Date().toISOString();
+        await this.persistCurrentNovel();
         this.showToast('회차가 삭제되었습니다.');
         this.selectedChapterIndex = Math.max(0, chapterIndex - 1);
         this.render();
     }
 
     async deleteCurrentSetting(novelId, settingIndex) {
-        const novel = this.novels.find(n => n.id === novelId);
-        if (!novel) return;
-        if (novel.settings.length <= 1) {
+        if (!this.currentNovel) return;
+        if (this.currentNovel.settings.length <= 1) {
             this.showToast('최소 1개의 설정 노트는 유지되어야 합니다.', 'error');
             return;
         }
-        if (!confirm(`"${novel.settings[settingIndex].title}" 설정을 삭제하시겠습니까?`)) return;
+        if (!confirm(`"${this.currentNovel.settings[settingIndex].title}" 설정을 삭제하시겠습니까?`)) return;
 
-        novel.settings.splice(settingIndex, 1);
-        novel.updatedAt = new Date().toISOString();
-        await this.persistNovels();
+        this.currentNovel.settings.splice(settingIndex, 1);
+        this.currentNovel.updatedAt = new Date().toISOString();
+        await this.persistCurrentNovel();
         this.showToast('설정 노트가 삭제되었습니다.');
         this.selectedSettingIndex = Math.max(0, settingIndex - 1);
         this.render();
     }
 
     downloadCurrentChapter(novelId, chapterIndex) {
-        const novel = this.novels.find(n => n.id === novelId);
-        if (!novel || !novel.chapters[chapterIndex]) return;
-        const chapter = novel.chapters[chapterIndex];
+        if (!this.currentNovel || !this.currentNovel.chapters[chapterIndex]) return;
+        const chapter = this.currentNovel.chapters[chapterIndex];
         const fileContent = `${chapter.title}\n\n${chapter.content || ''}`;
         const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8'  });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${novel.title.replace(/[\\/:*?"<>|]/g, '')}_${chapter.title.replace(/[\\/:*?"<>|]/g, '')}.txt`;
+        a.download = `${this.currentNovel.title.replace(/[\\/:*?"<>|]/g, '')}_${chapter.title.replace(/[\\/:*?"<>|]/g, '')}.txt`;
         document.body.appendChild(a);
         a.click();
         a.remove();
