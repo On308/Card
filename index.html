@@ -1,10 +1,21 @@
 <!DOCTYPE html>
-<html lang="ko" class="dark">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Novel Archive</title>
 
+    <!-- 테마 FOUC 방지: CSS보다 먼저 실행 -->
+    <script>
+        (function () {
+            try {
+                if (localStorage.getItem('novel_archive_theme') === 'dark') {
+                    document.documentElement.classList.add('dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+	
     <!-- 폰트: preconnect + 초기 필수 폰트만 (나머지는 JS가 lazy load) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
