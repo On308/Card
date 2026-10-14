@@ -1,0 +1,114 @@
+:root {
+    --bg-main: #fdf8f5;
+    --bg-card: #ffffff;
+    --pastel-pink: #f8c8dc;
+    --pastel-coral: #f8b195;
+    --pastel-lavender: #e2d4f0;
+    --pastel-mint: #b8e0d2;
+    --pastel-cream: #fff9ed;
+    --gold-accent: #d4af37;
+    --text-main: #3d3b40;
+    --text-muted: #79757f;
+    --border-color: #f0e6ed;
+    --shadow-soft: 0 8px 24px rgba(212, 175, 55, 0.08);
+    --shadow-hover: 0 12px 30px rgba(184, 224, 210, 0.25);
+}
+
+.dark {
+    --bg-main: #181a1f;
+    --bg-card: #21252b;
+    --text-main: #abb2bf;
+    --text-muted: #828a9a;
+    --border-color: #3e4451;
+    --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.3);
+    --shadow-hover: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+
+body {
+    font-family: 'Noto Sans KR', 'Inter', sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    transition: background 0.3s, color 0.3s;
+}
+
+.novel-content {
+    line-height: 180%;
+}
+.font-nanumgothic { font-family: 'Nanum Gothic', sans-serif; }
+.font-malgungothic { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; }
+.font-nanummyeongjo { font-family: 'Nanum Myeongjo', serif; }
+.font-ridibatang { font-family: 'RIDIBatang', serif; }
+.font-gowunbatang { font-family: 'Gowun Batang', serif; }
+
+.markdown-render h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    color: #f67280;
+}
+.dark .markdown-render h3 {
+    color: #e5c07b;
+}
+.markdown-render strong {
+    font-weight: 700;
+    color: inherit;
+}
+.search-highlight {
+    background-color: var(--pastel-pink);
+    color: #3d3b40;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+.dark .search-highlight {
+    background-color: #e5c07b;
+    color: #181a1f;
+}
+
+header {
+    background: linear-gradient(135deg, #fceae6 0%, #f3e9f8 50%, #e8f5f1 100%);
+    border-bottom: 2px solid rgba(212, 175, 55, 0.2);
+}
+.dark header {
+    background: linear-gradient(135deg, #21252b 0%, #282c34 100%);
+    border-bottom: 2px solid rgba(212, 175, 55, 0.1);
+}
+
+.pastel-panel {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-soft);
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.dark ::-webkit-scrollbar-track { background: #181a1f; }
+.dark ::-webkit-scrollbar-thumb { background: #3e4451; border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
+::-webkit-scrollbar-track { background: #fdf8f5; }
+::-webkit-scrollbar-thumb { background: #e2d4f0; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #f8c8dc; }
+
+.gold-button {
+    padding: 0.25rem 0.75rem;
+    background-color: #f8b195;
+    color: #ffffff;
+    font-size: 0.75rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+}
+.gold-button:hover {
+    background-color: #f67280;
+}
+
+.cyan-button {
+    padding: 0.25rem 0.75rem;
+    background-color: #b8e0d2;
+    color: #2c5446;
+    font-size: 0.75rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+}
