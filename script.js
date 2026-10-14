@@ -401,16 +401,16 @@ class NovelArchiveApp {
                 const seed = [{
                     id: 1,
                     color: '#f8c8dc',
-                    title: '환생한 대마법사의 은밀한 백업',
-                    keyword: '판타지, 회귀, 아카데미, 먼치킨',
+                    title: '샘플 텍스트',
+                    keyword: '장르, 테마',
                     targetChars: 5000,
                     settings: [
-                        { title: '세계관 요약', content: '### 세계관 개요\n- **마법 제국 아르카시아**\n- 서클 시스템 폐지 후 심상 마법 대중화' },
-                        { title: '주요 인물', content: '### 루카스\n- **나이**: 17세\n- **특징**: 전대 대마법사 회귀자' },
+                        { title: '세계관 설정', content: '### 제목\n**굵은 글씨는 이렇게 뜹니다.**\n서식 없으면 이렇게 뜹니다.' },
+                        { title: '기타 메모', content: '### 메모 작성 가능\n- **굵은 글씨**: 서식 없는 글씨 혼용도 가능\n- **추가 내용**: 메모든 설정이든 간편하게 작성 가능합니다.' },
                     ],
                     chapters: [{
-                        title: '1. 바란다면, 너의 검이 되어주겠다',
-                        content: '눈을 떠보니 소설 속 삼류 악당의 몸이었다.',
+                        title: '1. 시작',
+                        content: '내용을 작성하십시오.',
                         createdAt: nowISO, updatedAt: nowISO,
                     }],
                     createdAt: nowISO, updatedAt: nowISO,
@@ -1158,7 +1158,7 @@ class NovelArchiveApp {
 
         const newNovel = {
             id: newId, color, title, keyword, targetChars,
-            settings: [{ title: '세계관 및 설정', content: '설정을 입력하세요.', createdAt: nowISO, updatedAt: nowISO }],
+            settings: [{ title: '기본 설정', content: '내용 없음', createdAt: nowISO, updatedAt: nowISO }],
             chapters: [{ title: chTitle, content, createdAt: nowISO, updatedAt: nowISO }],
             createdAt: nowISO, updatedAt: nowISO,
         };
@@ -1347,7 +1347,6 @@ class NovelArchiveApp {
                 <div class="toolbar-group">
                     <select onchange="app.changeFontFamily(this.value)" class="toolbar-select">
                         <option value="font-nanumgothic" ${this.fontFamily === 'font-nanumgothic' ? 'selected' : ''}>나눔고딕</option>
-                        <option value="font-malgungothic" ${this.fontFamily === 'font-malgungothic' ? 'selected' : ''}>맑은고딕</option>
                         <option value="font-nanummyeongjo" ${this.fontFamily === 'font-nanummyeongjo' ? 'selected' : ''}>나눔명조</option>
                         <option value="font-ridibatang" ${this.fontFamily === 'font-ridibatang' ? 'selected' : ''}>리디바탕</option>
                     </select>

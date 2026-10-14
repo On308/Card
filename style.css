@@ -21,6 +21,7 @@ ul { list-style: none; margin: 0; padding: 0; }
     --bg-hover: #fceae6;
     --bg-sidebar-item: #fdf8f5;
     --bg-content: #d9e7e2;
+    --bg-content-soft: rgba(217, 231, 226, 0.6);
     --bg-code: #fff9ed;
 
     --pink: #f8c8dc;
@@ -48,6 +49,11 @@ ul { list-style: none; margin: 0; padding: 0; }
     --highlight-bg: #f8c8dc;
     --highlight-fg: #3d3b40;
     --heading-accent: #f67280;
+
+    --toast-success-bg: var(--mint);
+    --toast-success-fg: var(--mint-dark);
+    --toast-error-bg: var(--rose);
+    --toast-error-fg: #ffffff;
 }
 
 .dark {
@@ -57,6 +63,7 @@ ul { list-style: none; margin: 0; padding: 0; }
     --bg-hover: #282c34;
     --bg-sidebar-item: #181a1f;
     --bg-content: #1e2422;
+    --bg-content-soft: rgba(30, 36, 34, 0.6);
     --bg-code: #181a1f;
 
     --text-main: #abb2bf;
@@ -75,6 +82,9 @@ ul { list-style: none; margin: 0; padding: 0; }
     --highlight-bg: #e5c07b;
     --highlight-fg: #181a1f;
     --heading-accent: #e5c07b;
+
+    --toast-success-bg: #2c5446;
+    --toast-success-fg: #b8e0d2;
 }
 
 body {
@@ -88,7 +98,6 @@ body {
    FONT FAMILIES
    ============================================================ */
 .font-nanumgothic    { font-family: 'Nanum Gothic', 'Malgun Gothic', sans-serif; }
-.font-malgungothic   { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; }
 .font-nanummyeongjo  { font-family: 'Nanum Myeongjo', 'Batang', serif; }
 .font-ridibatang     { font-family: 'RIDIBatang', 'Nanum Myeongjo', serif; }
 .font-gowunbatang    { font-family: 'Gowun Batang', serif; }
@@ -224,8 +233,6 @@ body {
 .btn-icon:hover { background: var(--bg-hover); }
 .btn-xs { font-size: 0.7rem; padding: 0.375rem 0.75rem; }
 .btn-sm { font-size: 0.75rem; padding: 0.4rem 0.75rem; }
-.btn.hidden { display: none; }
-.btn-file-label { position: relative; }
 
 /* ============================================================
    APP MAIN
@@ -259,7 +266,6 @@ body {
     border-radius: 0.75rem;
 }
 .panel-pad { padding: 1rem; }
-.panel-pad-lg { padding: 1.5rem; }
 
 /* ============================================================
    TOAST
@@ -287,9 +293,8 @@ body {
     max-width: 20rem;
 }
 .toast.show { transform: translateY(0); opacity: 1; }
-.toast.success { background: var(--mint); color: var(--mint-dark); }
-.toast.error { background: var(--rose); color: #fff; border-color: var(--rose); }
-.dark .toast.success { background: #2c5446; color: #b8e0d2; }
+.toast.success { background: var(--toast-success-bg); color: var(--toast-success-fg); }
+.toast.error { background: var(--toast-error-bg); color: var(--toast-error-fg); border-color: var(--toast-error-bg); }
 
 /* ============================================================
    FLOATING SCROLL BUTTONS
@@ -302,8 +307,6 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    box-shadow: var(--shadow-lg);
-    border-radius: 999px;
 }
 .scroll-btn {
     width: 2.5rem; height: 2.5rem;
@@ -313,6 +316,7 @@ body {
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s;
     font-size: 0.75rem;
+    box-shadow: var(--shadow-md);
 }
 .scroll-btn:hover { background: var(--coral); }
 .dark .scroll-btn { background: rgba(55,65,81,0.8); }
@@ -353,6 +357,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0;
 }
 .dark .modal-header { background: #282c34; }
 .modal-title { font-size: 1.125rem; font-weight: 700; color: var(--text-strong); }
@@ -365,7 +370,8 @@ body {
 .modal-body {
     padding: 1.5rem;
     overflow-y: auto;
-    max-height: 80vh;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
@@ -377,6 +383,7 @@ body {
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
+    flex-shrink: 0;
 }
 .dark .modal-footer { background: rgba(40,44,52,0.5); }
 
@@ -664,7 +671,7 @@ body {
     overflow-y: auto;
     padding-right: 0.25rem;
 }
-.list-item-row { display: flex; align-items: stretch; gap: 0.375rem; }
+.list-item-row { display: flex; gap: 0.375rem; }
 .list-item {
     flex: 1;
     min-width: 0;
@@ -839,7 +846,7 @@ body {
 .content-display {
     flex: 1;
     padding: 1rem;
-    background: rgba(217,231,226,0.6);
+    background: var(--bg-content-soft);
     border: 1px solid var(--border-mint);
     border-radius: 0.75rem;
     white-space: pre-wrap;
@@ -849,7 +856,7 @@ body {
     overflow-y: auto;
     min-height: 300px;
 }
-.dark .content-display { background: rgba(30,36,34,0.6); border-color: var(--border); }
+.dark .content-display { border-color: var(--border); }
 .content-display[contenteditable="true"]:focus { border-color: var(--coral); }
 .content-hint { text-align: right; font-size: 0.7rem; color: var(--text-faint); margin-top: 0.5rem; }
 
@@ -893,7 +900,7 @@ body {
 
 /* Utility */
 .hidden { display: none !important; }
-.text-rose { color: var(--rose); }
+
 .gold-button, .cyan-button {
     padding: 0.25rem 0.75rem;
     border-radius: 0.5rem;
