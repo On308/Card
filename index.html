@@ -34,7 +34,7 @@
                 <span class="version-badge">v3.0</span>
             </h1>
         </div>
-
+				
         <div class="header-actions">
             <button onclick="app.openNewPostModal()" class="btn btn-primary">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -45,6 +45,12 @@
 
             <button onclick="app.toggleDarkMode()" id="themeToggleBtn" class="btn-icon" title="테마 전환"></button>
 
+            <button onclick="app.downloadJSON()" class="btn btn-soft">JSON 다운</button>
+            <label class="btn btn-soft btn-file-label">
+                JSON 복원
+                <input type="file" accept=".json" onchange="app.restoreJSON(event)" hidden>
+            </label>
+			
             <button onclick="app.connectFile()" id="connectFileBtn" class="btn btn-success">
                 📁 파일 연결
             </button>
@@ -52,12 +58,6 @@
                 💾 파일 저장
             </button>
 
-            <button onclick="app.downloadJSON()" class="btn btn-soft">JSON 다운</button>
-
-            <label class="btn btn-soft btn-file-label">
-                JSON 복원
-                <input type="file" accept=".json" onchange="app.restoreJSON(event)" hidden>
-            </label>
         </div>
     </header>
 
@@ -71,12 +71,30 @@
     <div class="scroll-buttons">
         <button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="scroll-btn" title="맨 위로">▲</button>
         <button onclick="window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'})" class="scroll-btn" title="맨 아래로">▼</button>
+
+        <!-- ✅ 실시간 날짜/시간 표시 -->
+        <div id="liveClock" class="live-clock">
+            <div class="live-clock-date">-</div>
+            <div class="live-clock-ampm">-</div>
+            <div class="live-clock-time">--:--:--</div>
+        </div>
     </div>
 
     <div id="modalOverlay" class="modal-overlay hidden">
         <div id="modalContent" class="modal"></div>
     </div>
 
-    <script src="script.js"></script>
+<script src="js/constants.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/db.js"></script>
+<script src="js/preferences.js"></script>
+<script src="js/file-sync.js"></script>
+<script src="js/modal.js"></script>
+<script src="js/list-view.js"></script>
+<script src="js/detail-view.js"></script>
+<script src="js/chapter-edit.js"></script>
+<script src="js/setting-edit.js"></script>
+<script src="js/app.js"></script>
+
 </body>
 </html>

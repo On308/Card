@@ -8,7 +8,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; text-decoration: none; }
 table { border-collapse: collapse; width: 100%; }
-h1, h2, h3, h4, h5, h6, p { margin: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 0; }
 ul { list-style: none; margin: 0; padding: 0; }
 
 /* ============================================================
@@ -642,13 +642,26 @@ body {
 }
 
 /* Sidebar */
-.sidebar { padding: 1rem; position: sticky; top: 6rem; }
+.sidebar { padding: 1rem; }
 .sidebar-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 0.75rem;
     padding: 0 0.5rem;
+}
+.sidebar-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.sidebar-renumber {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.sidebar-renumber:hover {
+    color: var(--heading-accent);
 }
 .sidebar-title {
     font-size: 0.7rem;
@@ -667,11 +680,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.375rem;
-    max-height: 55vh;
-    overflow-y: auto;
-    padding-right: 0.25rem;
 }
-.list-item-row { display: flex; gap: 0.375rem; }
+.list-item-row { display: flex; gap: 0; }
 .list-item {
     flex: 1;
     min-width: 0;
@@ -709,6 +719,15 @@ body {
     flex-shrink: 0;
 }
 
+/* 본문 툴바의 회차 이동 select */
+.toolbar-select.move-select-inline {
+    cursor: pointer;
+    min-width: 8rem;
+}
+.toolbar-select.move-select-inline option[value=""] {
+    color: var(--text-faint);
+}
+
 /* Content Panel */
 .content-panel { padding: 1.5rem; display: flex; flex-direction: column; min-height: 550px; }
 .content-header {
@@ -721,7 +740,16 @@ body {
     justify-content: space-between;
     gap: 0.75rem;
 }
-.content-title { font-size: 1.125rem; font-weight: 700; color: var(--text-strong); }
+.content-bottom {
+    padding-top: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+}
+.content-title { font-size: 1.125rem; font-weight: 700; color: var(--text-strong); padding: 0 0 0.5rem 0;}
 .dark .content-title { color: #fff; }
 .content-subtitle { font-size: 0.75rem; color: var(--text-faint); margin-top: 0.125rem; font-family: 'SFMono-Regular', Consolas, monospace; }
 .content-stats { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.25rem; font-size: 0.75rem; color: var(--text-faint); }
@@ -858,30 +886,12 @@ body {
 }
 .dark .content-display { border-color: var(--border); }
 .content-display[contenteditable="true"]:focus { border-color: var(--coral); }
-.content-hint { text-align: right; font-size: 0.7rem; color: var(--text-faint); margin-top: 0.5rem; }
+.content-hint { text-align: right; font-size: 0.7rem; color: var(--text-faint); margin-top: 1.5rem; }
 
 .setting-display {
     background: transparent;
     border: none;
     padding: 0;
-}
-
-/* ============================================================
-   MARKDOWN RENDER
-   ============================================================ */
-.markdown-render h3 {
-    font-size: 1.25rem;
-    font-weight: 700;
-    margin: 1rem 0 0.5rem;
-    color: var(--heading-accent);
-}
-.markdown-render strong { font-weight: 700; color: inherit; }
-
-.search-highlight {
-    background: var(--highlight-bg);
-    color: var(--highlight-fg);
-    padding: 0 2px;
-    border-radius: 2px;
 }
 
 /* ============================================================
@@ -923,3 +933,334 @@ body {
     box-shadow: var(--shadow-sm);
     transition: background 0.15s, opacity 0.15s;
 }
+
+/* ============================================================
+   CHAPTER NAVIGATION (이전/다음 회차)
+   ============================================================ */
+.chapter-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.chapter-nav-btn {
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    cursor: pointer;
+}
+
+.chapter-nav-btn:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--heading-accent);
+    border-color: var(--border);
+}
+
+.chapter-nav-btn:disabled {
+    color: var(--text-faint);
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.chapter-nav-sep {
+    color: var(--text-faint);
+    user-select: none;
+    font-size: 0.75rem;
+}
+
+/* ============================================================
+   MARKDOWN EXTENSIONS
+   ============================================================ */
+.markdown-render h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-top: 3rem;
+    color: var(--heading-accent);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 0.5rem;
+}
+.markdown-render h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 1rem 0 0.25rem;
+    color: var(--heading-accent);
+}
+.markdown-render h4 {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin: 1rem 0 0.25rem;
+    color: var(--heading-accent);
+}
+.markdown-render h5 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0.75rem 0 0.375rem;
+    color: var(--text-strong);
+}
+.markdown-render strong { font-weight: 700; color: inherit; }
+
+.search-highlight {
+    background: var(--highlight-bg);
+    color: var(--highlight-fg);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* 수평선 */
+.markdown-render hr.md-hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1rem 0;
+}
+
+/* 인용구 */
+.markdown-render .md-quote {
+    margin: 0.5rem 0;
+    padding: 1.5rem 0.75rem;
+    border-left: 3px solid var(--heading-accent);
+    background: rgba(246, 114, 128, 0.06);
+    color: var(--text-muted);
+}
+.dark .markdown-render .md-quote {
+    background: rgba(229, 192, 123, 0.08);
+}
+
+/* 목록 */
+.markdown-render ul,
+.markdown-render ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+    white-space: normal;
+}
+.markdown-render ul li { list-style: disc; }
+.markdown-render ol li { list-style: decimal; }
+.markdown-render li {
+    margin: 0.1rem 0;
+    white-space: normal;
+}
+
+/* 체크리스트 */
+.markdown-render li.md-task {
+    list-style: none;
+    margin-left: -1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.markdown-render li.md-task input[type="checkbox"] {
+    accent-color: var(--rose);
+    cursor: default;
+}
+
+/* 인라인 코드 */
+.markdown-render code.md-code {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    padding: 0.05rem 0.35rem;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 0.85em;
+}
+
+/* 취소선 / 기울임 */
+.markdown-render del { opacity: 0.6; }
+.markdown-render em { font-style: italic; color: inherit; }
+
+/* ============================================================
+   MARKDOWN TABLE
+   ============================================================ */
+.markdown-render .md-table {
+    width: 100%;
+    margin: 0.75rem 0;
+    border-collapse: collapse;
+    font-size: 0.9em;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    table-layout: auto;
+}
+
+.markdown-render .md-table thead {
+    background: rgba(246, 114, 128, 0.08);
+}
+.dark .markdown-render .md-table thead {
+    background: rgba(229, 192, 123, 0.08);
+}
+
+.markdown-render .md-table th {
+    padding: 0.5rem 0.75rem;
+    font-weight: 700;
+    color: var(--heading-accent);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+}
+
+.markdown-render .md-table td {
+    padding: 0.5rem 0.75rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-main);
+    vertical-align: top;
+}
+
+.markdown-render .md-table tbody tr:nth-child(even) {
+    background: rgba(0, 0, 0, 0.02);
+}
+.dark .markdown-render .md-table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.markdown-render .md-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.markdown-render .md-p {
+    margin: 2rem 0;      /* 문단 위아래 여백 확대 */
+}
+.markdown-render .md-p:first-child { margin-top: 0; }
+.markdown-render .md-p:last-child  { margin-bottom: 0; }
+
+/* markdown-render 안에서는 pre-wrap 해제 (문단/br로 개행 제어) */
+.markdown-render {
+    white-space: normal;
+}
+
+/* ============================================================
+   LIVE CLOCK (스크롤 버튼 아래 날짜/시간)
+   ============================================================ */
+.live-clock {
+    margin-top: 0.35rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    text-align: center;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    color: var(--text-muted);
+    backdrop-filter: blur(6px);
+    user-select: none;
+    pointer-events: none;   /* 스크롤 버튼 클릭 방해하지 않도록 */
+    min-width: 4.5rem;
+}
+.dark .live-clock {
+    background: rgba(33, 37, 43, 0.85);
+    border-color: var(--border);
+}
+
+.live-clock-date {
+    font-weight: 500;
+    color: var(--text-main);
+    white-space: nowrap;
+}
+
+.live-clock-ampm {
+    color: var(--text-faint);
+    font-size: 0.65rem;
+    margin-top: 0.15rem;
+}
+
+.live-clock-time {
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-weight: 700;
+    color: var(--heading-accent);
+    font-size: 1.5rem;
+    margin-top: 0.1rem;
+    letter-spacing: 0.02em;
+}
+.dark .live-clock-time {
+    color: #e5c07b;
+}
+
+/* ============================================================
+   SAVE STATUS
+   ============================================================ */
+.save-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    margin-bottom: 0.5rem;
+    transition: color 0.2s, background 0.2s;
+}
+.save-status-dot {
+    width: 0.5rem; height: 0.5rem;
+    border-radius: 999px;
+    background: var(--text-faint);
+    transition: background 0.2s;
+}
+.save-status.is-saving .save-status-dot { background: #f8b195; animation: pulse 1s infinite; }
+.save-status.is-saving { color: #b76b3f; }
+.save-status.is-saved  .save-status-dot { background: #78c79f; }
+.save-status.is-saved  { color: #3e8b62; }
+.save-status.is-error  .save-status-dot { background: var(--rose); }
+.save-status.is-error  { color: var(--rose); }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.3; }
+}
+
+/* ============================================================
+   NOVEL STATUS BADGE
+   ============================================================ */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.status-badge.status-ongoing   { color: #2c5b8f; background: rgba(146, 190, 241, 0.15); border-color: rgba(146, 190, 241, 0.4); }
+.status-badge.status-hiatus    { color: #8a6d0d; background: rgba(212, 175, 55, 0.15);  border-color: rgba(212, 175, 55, 0.4); }
+.status-badge.status-completed { color: #2c5446; background: rgba(184, 224, 210, 0.2);  border-color: rgba(184, 224, 210, 0.5); }
+.status-badge.status-dropped   { color: #4e5269; background: rgba(181, 186, 211, 0.2);  border-color: rgba(181, 186, 211, 0.5); }
+
+.dark .status-badge.status-ongoing   { color: #93c5fd; }
+.dark .status-badge.status-hiatus    { color: #fcd34d; }
+.dark .status-badge.status-completed { color: #6ee7b7; }
+.dark .status-badge.status-dropped   { color: #c4b5fd; }
+
+.status-cell { text-align: center; }
+
+/* ============================================================
+   MARKDOWN IMAGE
+   ============================================================ */
+/* 기본: 원본 크기 유지, 화면보다 크면 축소 */
+.markdown-render .md-img {
+    display: block;
+    max-width: 90%;
+    height: auto;
+    margin: 0.75rem auto;
+}
+
+/* 문단 안 인라인 이미지: 글 흐름을 방해하지 않을 정도로만 축소 */
+.markdown-render p .md-img {
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0.25rem 0.5rem;
+    max-width: 90%;
+    border-radius: 0.4rem;
+}
+
+.markdown-render a .md-img { cursor: zoom-in; }
