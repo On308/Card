@@ -1,6 +1,6 @@
 /js
   ├── constants.js       // 색상 팔레트, 정렬 comparator, 폰트 로더
-  ├── utils.js           // escapeHtml, applyTextCorrections, 템플릿 헬퍼
+  ├── utils.js           // escapeHtml, applyTextCorrections, 템플릿 헬퍼, 자동변환
   ├── db.js              // NovelDatabase 클래스
   ├── list-view.js       // 목록 화면 (render/검색/정렬/배치태그/JSON)
   ├── detail-view.js     // 상세 화면 (탭, 회차/설정 렌더링, 부분 갱신)
