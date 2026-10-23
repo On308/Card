@@ -27,12 +27,13 @@
 <body>
 
     <header class="app-header">
-        <div class="brand" onclick="app.goToList()">
-            <div class="brand-icon">N</div>
-            <h1 class="brand-name">
-                Novel Archive
-                <span class="version-badge">v3.0</span>
-            </h1>
+	    <div class="brand">
+            <button class="brand-icon" onclick="app.goToList()">N</button>
+            <div id="globalStats" class="global-stats" title="모든 작품의 누적 통계">
+                    <span class="stat-item"><span class="stat-label">누적 글자</span> <strong id="statChars">0</strong></span>
+                    <span class="stat-sep">·</span>
+                    <span class="stat-item"><span class="stat-label">누적 회차</span> <strong id="statChapters">0</strong></span>
+            </div>
         </div>
 				
         <div class="header-actions">
@@ -69,10 +70,14 @@
     </main>
 
     <div class="scroll-buttons">
-        <button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="scroll-btn" title="맨 위로">▲</button>
-        <button onclick="window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'})" class="scroll-btn" title="맨 아래로">▼</button>
+        <div class="scroll-btn-grid">
+            <button onclick="window.scrollTo({top:0})" class="scroll-btn" title="빠르게 맨 위로">▲</button>
+            <button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="scroll-btn" title="부드럽게 맨 위로">↑</button>
+            <button onclick="window.scrollTo({top:document.body.scrollHeight})" class="scroll-btn" title="빠르게 맨 아래로">▼</button>
+            <button onclick="window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'})" class="scroll-btn" title="부드럽게 맨 아래로">↓</button>
+        </div>
 
-        <!-- ✅ 실시간 날짜/시간 표시 -->
+        <!-- 실시간 날짜/시간 표시 -->
         <div id="liveClock" class="live-clock">
             <div class="live-clock-date">-</div>
             <div class="live-clock-ampm">-</div>
