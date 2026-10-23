@@ -27,16 +27,21 @@ class NovelArchiveApp {
         this.selectedChapterIndex = 0;
         this.selectedSettingIndex = 0;
         this.activeDetailTab = 'chapters';
-
+		
+		this.currentPage = 1;          // 현재 페이지 (1부터 시작)
+        this.itemsPerPage = 16;        // 페이지당 항목 수
+		
         this.searchQuery = '';
         this.selectedTag = '전체';
 		this.selectedStatus = 'all';
+		this.selectedAdult = 'all';
         this.sortOrder = 'latest';
 
         this.isDarkMode = false;
         this.fontSize = 13;
         this.fontFamily = 'font-nanumgothic';
         this.lineHeight = '180%';
+		this.contentPadding = 16;
 
         this.lastInput = { color: '#f8c8dc', title: '', keyword: '' };
 
@@ -84,8 +89,7 @@ class NovelArchiveApp {
                     keyword: '장르, 테마',
                     targetChars: 5000,
                     settings: [
-                        { title: '세계관 설정', content: '### 제목\n**굵은 글씨는 이렇게 뜹니다.**\n서식 없으면 이렇게 뜹니다.' },
-                        { title: '기타 메모', content: '### 메모 작성 가능\n- **굵은 글씨**: 서식 없는 글씨 혼용도 가능\n- **추가 내용**: 메모든 설정이든 간편하게 작성 가능합니다.' },
+                        { title: '세계관 설정', content: '# 제목1\n## 제목2\n### 제목3\n#### 제목4\n**굵은 글씨**는 이렇게 뜹니다.\n*기울임*은 이렇게 뜹니다.\n`형광펜`은 이렇게 뜹니다.\n> 인용은 이렇게\n---\n|번호|내용|설명|\n|:---:|:---:|---|\n|표는|이렇게|작성할 수 있습니다|' },
                     ],
                     chapters: [{
                         title: '1. 시작',
@@ -113,6 +117,7 @@ class NovelArchiveApp {
             if (lastMem) this.lastInput = JSON.parse(lastMem);
 
             this.render();
+			this.updateGlobalStats();
 
             setTimeout(() => this._migrateRichSettingsFlags(), 0);
         } catch (e) {

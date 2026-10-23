@@ -10,6 +10,8 @@ const PreferencesMixin = {
         if (ff) { this.fontFamily = ff; FontLoader.ensure(ff); }
         const lh = localStorage.getItem('novel_archive_lineheight');
         if (lh) this.lineHeight = lh;
+		const cp = localStorage.getItem('novel_archive_contentpadding');
+        if (cp) this.contentPadding = parseInt(cp, 10);
     },
 
     initEventDelegation() {
@@ -18,13 +20,68 @@ const PreferencesMixin = {
             if (pill) {
                 e.stopPropagation();
                 this.filterByTag(pill.dataset.tag);
-                return;                     // 추가
+                return;
             }
 			const statusPill = e.target.closest('[data-action="filter-status"]');
             if (statusPill) {
                 e.stopPropagation();
                 this.selectedStatus = statusPill.dataset.status;
+				this.currentPage = 1;
                 this.render();
+            }
+            // ✅ 성인 필터 핸들러 추가
+            const adultPill = e.target.closest('[data-action="filter-adult"]');
+            if (adultPill) {
+                e.stopPropagation();
+                this.selectedAdult = adultPill.dataset.adult;
+				this.currentPage = 1;
+                this.render();
+                return;
+            }
+            // ✅ No 헤더 클릭 → 등록순 정렬 토글
+            const sortNumBtn = e.target.closest('[data-action="sort-by-number"]');
+            if (sortNumBtn) {
+                e.stopPropagation();
+                // created_desc ↔ created_asc 토글, 그 외에는 created_desc 로 진입
+                this.sortOrder = this.sortOrder === 'created_desc'
+                    ? 'created_asc'
+                    : 'created_desc';
+                this.currentPage = 1;
+                this.render();
+                return;
+            }
+            // ✅ 회차 헤더 클릭 → 회차순 정렬 토글
+            const sortChaptersBtn = e.target.closest('[data-action="sort-by-chapters"]');
+            if (sortChaptersBtn) {
+                e.stopPropagation();
+                this.sortOrder = this.sortOrder === 'chapters_desc'
+                    ? 'chapters_asc'
+                    : 'chapters_desc';
+                this.currentPage = 1;
+                this.render();
+                return;
+            }
+            // ✅ 범용 정렬 헤더 (data-sort-key 사용)
+            const sortByBtn = e.target.closest('[data-action="sort-by"]');
+            if (sortByBtn) {
+                e.stopPropagation();
+                const key = sortByBtn.dataset.sortKey;          // 'title' | 'chars' | ...
+                const ascKey  = `${key}_asc`;
+                const descKey = `${key}_desc`;
+                const ascExists  = !!SORT_COMPARATORS[ascKey];
+                const descExists = !!SORT_COMPARATORS[descKey];
+                if (!ascExists || !descExists) {
+                    console.warn(`[sort] 비교자 없음: ${key}_asc / ${key}_desc`);
+                    return;
+                }
+                // 현재 정렬 상태에 따라 토글
+                if (this.sortOrder === descKey)       this.sortOrder = ascKey;
+                else if (this.sortOrder === ascKey)   this.sortOrder = descKey;
+                else                                  this.sortOrder = descKey; // 처음엔 내림부터
+
+                this.currentPage = 1;
+                this.render();
+                return;
             }
         });
     },
@@ -180,20 +237,29 @@ const PreferencesMixin = {
         localStorage.setItem('novel_archive_lineheight', this.lineHeight);
         this.applyContentStyles();
     },
+    changeContentPadding(delta) {
+        this.contentPadding = Math.max(0, Math.min(64, this.contentPadding + delta));
+        localStorage.setItem('novel_archive_contentpadding', this.contentPadding);
+        this.applyContentStyles();
+    },
     applyContentStyles() {
         const el = document.getElementById('chapterContentDisplay');
         if (el) {
             el.style.fontSize = `${this.fontSize}pt`;
             el.style.lineHeight = this.lineHeight;
+			el.style.padding = `${this.contentPadding}px`;
             el.className = `content-display ${this.fontFamily}`;
         }
         const setEl = document.getElementById('settingContentDisplay');
         if (setEl) {
             setEl.style.fontSize = `${this.fontSize}pt`;
             setEl.style.lineHeight = this.lineHeight;
+			setEl.style.padding = `${this.contentPadding}px`;
             setEl.className = `content-display markdown-render setting-display ${this.fontFamily}`;
         }
         const label = document.getElementById('fontSizeLabel');
         if (label) label.textContent = `${this.fontSize}pt`;
+        const padLabel = document.getElementById('paddingSizeLabel');
+        if (padLabel) padLabel.textContent = `${this.contentPadding}px`;
     }
 };

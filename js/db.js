@@ -39,7 +39,8 @@ class NovelDatabase {
                             meta.chapterCount = chs.length;
                             meta.totalChars = chs.reduce((s, c) => s + ((c.content || '').length), 0);
                             meta.hasRichSettings = computeHasRichSettings(sts);
-                            meta.status = meta.status || 'ongoing';   // Ãß°¡
+                            meta.status = meta.status || 'ongoing';
+							meta.isAdult = meta.isAdult === true;
                             metaStore.put(meta);
                             contentStore.put({ id: n.id, chapters: chs, settings: sts });
                         });
@@ -87,6 +88,7 @@ class NovelDatabase {
             meta.totalChars = chs.reduce((s, c) => s + ((c.content || '').length), 0);
             meta.hasRichSettings = computeHasRichSettings(sts);
 			meta.status = meta.status || 'ongoing'; 
+			meta.isAdult = meta.isAdult === true;
 
             const tx = this.db.transaction([this.metaStore, this.contentStore], 'readwrite');
             tx.objectStore(this.metaStore).put(meta);
@@ -118,6 +120,7 @@ class NovelDatabase {
             meta.totalChars = chs.reduce((s, c) => s + ((c.content || '').length), 0);
             meta.hasRichSettings = computeHasRichSettings(sts);
 			meta.status = meta.status || 'ongoing';
+			meta.isAdult = meta.isAdult === true;
             metaStore.put(meta);
             contentStore.put({ id: n.id, chapters: chs, settings: sts });
         }

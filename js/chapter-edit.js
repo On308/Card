@@ -59,9 +59,11 @@ const ChapterEditMixin = {
                         </button>
                     </div>
                 `).join('')}
-                <div class="sidebar-header-actions">
+				<div class="sidebar-header-actions">
                     <button onclick="app.renumberChapters()" class="sidebar-renumber"
-                            title="회차 번호를 1화부터 순서대로 재정렬">🔄 회차 번호 재정렬</button>
+                            title="회차 번호를 1화부터 순서대로 재정렬">🔄 재정렬</button>
+                    <button onclick="app.openMoveChapterModal()" class="sidebar-renumber"
+                            title="현재 회차를 다른 작품으로 이동">📤 회차 이동</button>
                 </div>
             </div>
         `;
@@ -83,17 +85,7 @@ const ChapterEditMixin = {
                         <span>공백 제외: <font class="mono">${currentCharsNoSpace.toLocaleString()}자</font></span>
                         <span>원고지: <font class="mono">${manuscriptPages}매</font></span>
                     </div>
-					
-                    <select class="toolbar-select move-select-inline"
-                            onchange="app.moveChapterTo(${novel.id}, ${this.selectedChapterIndex}, this.value); this.selectedIndex=0;"
-                            title="회차 순서 변경">
-                        <option value="" disabled selected>↕ 회차 순서 변경</option>
-                        <option value="top">⤒ 맨 위로</option>
-                        <option value="up">↑ 위로</option>
-                        <option value="down">↓ 아래로</option>
-                        <option value="bottom">⤓ 맨 아래로</option>
-                    </select>
-					
+							
                 <div class="chapter-nav">
                     <button onclick="app.goToPrevChapter()" class="chapter-nav-btn"
                             ${this.selectedChapterIndex === 0 ? 'disabled' : ''}
@@ -104,37 +96,62 @@ const ChapterEditMixin = {
                             title="다음 회차">다음 회차 ›</button>
                 </div>
             </div>
-
             <div class="content-toolbar">
-                <div class="toolbar-group">
-                    <select onchange="app.changeFontFamily(this.value)" class="toolbar-select">
-                        <option value="font-nanumgothic" ${this.fontFamily === 'font-nanumgothic' ? 'selected' : ''}>나눔고딕</option>
-                        <option value="font-nanummyeongjo" ${this.fontFamily === 'font-nanummyeongjo' ? 'selected' : ''}>나눔명조</option>
-                        <option value="font-ridibatang" ${this.fontFamily === 'font-ridibatang' ? 'selected' : ''}>리디바탕</option>
-                    </select>
-                    <select onchange="app.changeLineHeight(this.value)" class="toolbar-select">
-                        <option value="150%" ${this.lineHeight === '150%' ? 'selected' : ''}>줄간격 150%</option>
-                        <option value="180%" ${this.lineHeight === '180%' ? 'selected' : ''}>줄간격 180%</option>
-                        <option value="200%" ${this.lineHeight === '200%' ? 'selected' : ''}>줄간격 200%</option>
-                        <option value="240%" ${this.lineHeight === '240%' ? 'selected' : ''}>줄간격 240%</option>
-                    </select>
-                    <div class="font-size-control">
-                        <span class="label">크기</span>
-                        <button onclick="app.changeFontSize(-1)">-</button>
-                        <span class="value" id="fontSizeLabel">${this.fontSize}pt</span>
-                        <button onclick="app.changeFontSize(1)">+</button>
+                <!-- ── 1행: 좌측(이동 관련) ↔ 우측(액션) ── -->
+                <div class="toolbar-row">
+                    <div class="toolbar-group">
+                        <button onclick="app.correctCurrentChapterContent(${novel.id},${this.selectedChapterIndex})" class="btn btn-purple btn-sm">✨ 자동 변환</button>
+                        <button onclick="app.downloadCurrentChapter(${novel.id},${this.selectedChapterIndex})" class="btn btn-success btn-sm">TXT 저장</button>
                     </div>
-                    <div class="search-inline">
-                        <input type="text" id="internalSearchInput" placeholder="본문 검색"
-                               onkeydown="if(event.key==='Enter') app.handleInternalSearch(this.value)">
-                        <button onclick="app.handleInternalSearch(document.getElementById('internalSearchInput').value)">🔍</button>
+                    <div class="toolbar-actions">
+                        <button onclick="app.openMoveChapterModal()" class="btn btn-soft btn-sm"
+                                title="현재 회차를 다른 작품으로 이동">📤 회차 이동</button>
+                        <select class="toolbar-select move-select-inline"
+                                onchange="app.moveChapterTo(${novel.id}, ${this.selectedChapterIndex}, this.value); this.selectedIndex=0;"
+                                title="회차 순서 변경">
+                            <option value="" disabled selected>↕ 회차 순서 변경</option>
+                            <option value="top">⤒ 맨 위로</option>
+                            <option value="up">↑ 위로</option>
+                            <option value="down">↓ 아래로</option>
+                            <option value="bottom">⤓ 맨 아래로</option>
+                        </select>
+                        <button onclick="app.openEditChapterModal(${novel.id},${this.selectedChapterIndex})" class="btn btn-soft btn-sm">회차 수정</button>
+                        <button onclick="app.deleteCurrentChapter(${novel.id},${this.selectedChapterIndex})" class="btn btn-danger btn-sm">삭제</button>
                     </div>
                 </div>
-                <div class="toolbar-actions">
-                    <button onclick="app.correctCurrentChapterContent(${novel.id},${this.selectedChapterIndex})" class="btn btn-purple btn-sm">✨ 변환</button>
-                    <button onclick="app.downloadCurrentChapter(${novel.id},${this.selectedChapterIndex})" class="btn btn-success btn-sm">TXT 다운</button>
-                    <button onclick="app.openEditChapterModal(${novel.id},${this.selectedChapterIndex})" class="btn btn-soft btn-sm">수정</button>
-                    <button onclick="app.deleteCurrentChapter(${novel.id},${this.selectedChapterIndex})" class="btn btn-danger btn-sm">삭제</button>
+
+                <!-- ── 2행: 폰트/줄간격/글자크기/검색 (좌측 정렬) ── -->
+                <div class="toolbar-row">
+                    <div class="toolbar-group">
+                        <select onchange="app.changeFontFamily(this.value)" class="toolbar-select">
+                            <option value="font-nanumgothic" ${this.fontFamily === 'font-nanumgothic' ? 'selected' : ''}>나눔고딕</option>
+                            <option value="font-nanummyeongjo" ${this.fontFamily === 'font-nanummyeongjo' ? 'selected' : ''}>나눔명조</option>
+                            <option value="font-ridibatang" ${this.fontFamily === 'font-ridibatang' ? 'selected' : ''}>리디바탕</option>
+                        </select>
+                        <select onchange="app.changeLineHeight(this.value)" class="toolbar-select">
+                            <option value="150%" ${this.lineHeight === '150%' ? 'selected' : ''}>줄간격 150%</option>
+                            <option value="180%" ${this.lineHeight === '180%' ? 'selected' : ''}>줄간격 180%</option>
+                            <option value="200%" ${this.lineHeight === '200%' ? 'selected' : ''}>줄간격 200%</option>
+                            <option value="240%" ${this.lineHeight === '240%' ? 'selected' : ''}>줄간격 240%</option>
+                        </select>
+                        <div class="font-size-control">
+                            <span class="label">글자</span>
+                            <button onclick="app.changeFontSize(-1)">-</button>
+                            <span class="value" id="fontSizeLabel">${this.fontSize}pt</span>
+                            <button onclick="app.changeFontSize(1)">+</button>
+                        </div>
+                        <div class="font-size-control" title="본문 상하좌우 여백">
+                            <span class="label">여백</span>
+                            <button onclick="app.changeContentPadding(-4)">-</button>
+                            <span class="value" id="paddingSizeLabel">${this.contentPadding}px</span>
+                            <button onclick="app.changeContentPadding(4)">+</button>
+                        </div>
+                        <div class="search-inline">
+                            <input type="text" id="internalSearchInput" placeholder="본문 검색..."
+                                   onkeydown="if(event.key==='Enter') app.handleInternalSearch(this.value)">
+                            <button onclick="app.handleInternalSearch(document.getElementById('internalSearchInput').value)">🔍</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -155,7 +172,7 @@ const ChapterEditMixin = {
 
             <div id="chapterContentDisplay"
                  class="content-display ${this.fontFamily}"
-                 style="font-size: ${this.fontSize}pt; line-height: ${this.lineHeight};"
+                 style="font-size: ${this.fontSize}pt; line-height: ${this.lineHeight}; padding: ${this.contentPadding}px;"
                  contenteditable="plaintext-only"
                  oncompositionstart="app.isComposing = true"
                  oncompositionend="app.isComposing = false; app.handleAutoSaveContent(${novel.id}, ${this.selectedChapterIndex}, this.innerText)"
@@ -175,12 +192,14 @@ const ChapterEditMixin = {
                             ${this.selectedChapterIndex === this.currentNovel.chapters.length - 1 ? 'disabled' : ''}
                             title="다음 회차">다음 회차 ›</button>
                     <span class="chapter-nav-sep">|</span>
-					<button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="chapter-nav-btn">맨 위로</button>
+					<button onclick="window.scrollTo({top:0})" class="chapter-nav-btn">맨 위로</button>
                     <span class="chapter-nav-sep">|</span>
-                    <button onclick="app.switchDetailTab('settings')" class="chapter-nav-btn">메모 및 설정</button>
+                    <button onclick="app.switchDetailTab('settings')" class="chapter-nav-btn">설정 및 메모</button>
                     <span class="chapter-nav-sep">|</span>
 					<button onclick="app.goToList()" class="chapter-nav-btn">목록</button>
                     <span class="chapter-nav-sep">|</span>
+						<button onclick="app.openAddChapterModal(${novel.id})" class="chapter-nav-btn" title="새 회차 작성">+ 회차 추가</button>
+						<span class="chapter-nav-sep">|</span>
                     <button onclick="app.openEditChapterModal(${novel.id},${this.selectedChapterIndex})" class="chapter-nav-btn" title="현재 회차 수정">✏️</button>
                     <span class="chapter-nav-sep">|</span>
                     <button onclick="app.deleteCurrentChapter(${novel.id},${this.selectedChapterIndex})" class="chapter-nav-btn" title="현재 회차 삭제">🗑️</button>
@@ -256,7 +275,7 @@ const ChapterEditMixin = {
                         <label class="form-label" style="margin:0;">본문</label>
                         ${autoCorrectBlock('chapContent', 'handleChapTextFileUpload')}
                     </div>
-                    <textarea id="chapContent" class="textarea" rows="8"></textarea>
+                    <textarea id="chapContent" class="textarea" rows="16"></textarea>
                 </div>
             `,
         });
@@ -417,6 +436,139 @@ const ChapterEditMixin = {
         a.remove();
         URL.revokeObjectURL(url);
         this.showToast('회차가 다운로드되었습니다.');
+    },
+	
+	    /* ============================================================
+       회차를 다른 작품으로 이동
+       ============================================================ */
+    openMoveChapterModal() {
+        if (!this.currentNovel) return;
+        const src = this.currentNovel;
+        const chapters = src.chapters || [];
+        if (chapters.length <= 1) {
+            this.showToast('회차가 1개뿐이라 이동할 수 없습니다.', 'error');
+            return;
+        }
+
+        // 이동 대상 작품 목록 (자기 자신 제외)
+        const others = this.novels.filter(n => n.id !== src.id);
+        if (others.length === 0) {
+            this.showToast('이동할 다른 작품이 없습니다.', 'error');
+            return;
+        }
+
+        const chapterOptions = chapters.map((ch, idx) => `
+            <option value="${idx}" ${idx === this.selectedChapterIndex ? 'selected' : ''}>
+                ${escapeHtml(ch.title)} (${(ch.content || '').length}자)
+            </option>
+        `).join('');
+
+        const novelOptions = others
+            .sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ko'))
+            .map(n => `<option value="${n.id}">${escapeHtml(n.title)} (${n.chapterCount || 0}화)</option>`)
+            .join('');
+
+        document.getElementById('modalContent').innerHTML = this._renderModalShell({
+            title: '회차를 다른 작품으로 이동',
+            formId: 'formMoveChapter',
+            onsubmit: 'app.handleMoveChapterSubmit(event)',
+            submitLabel: '이동',
+            submitClass: 'btn btn-primary',
+            body: `
+                <div class="form-group">
+                    <label class="form-label">현재 작품</label>
+                    <input type="text" class="input" value="${escapeHtml(src.title)}" disabled>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">옮길 회차</label>
+                    <select id="moveChapterSelect" class="select">
+                        ${chapterOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">대상 작품</label>
+                    <select id="moveTargetNovelSelect" class="select">
+                        ${novelOptions}
+                    </select>
+                </div>
+                <p style="font-size:0.75rem; color:var(--text-faint);">
+                    ⚠️ 원본 작품에서 해당 회차가 삭제되며, 대상 작품의 맨 끝에 추가됩니다.<br>
+                    ⚠️ 대상 작품의 회차 번호는 자동 재정렬되지 않습니다. 필요 시 "회차 번호 재정렬"을 사용하세요.
+                </p>
+            `,
+        });
+        document.getElementById('modalOverlay').classList.remove('hidden');
+    },
+
+    async handleMoveChapterSubmit(event) {
+        event.preventDefault();
+        if (!this.currentNovel) return;
+
+        const srcId = this.currentNovel.id;
+        const chapterIdx = parseInt(document.getElementById('moveChapterSelect').value, 10);
+        const dstId = parseInt(document.getElementById('moveTargetNovelSelect').value, 10);
+
+        if (srcId === dstId) {
+            this.showToast('같은 작품으로는 이동할 수 없습니다.', 'error');
+            return;
+        }
+        if (!Number.isInteger(chapterIdx) || chapterIdx < 0) {
+            this.showToast('옮길 회차를 선택하세요.', 'error');
+            return;
+        }
+
+        // 원본과 대상이 1개 회차만 남을 위험 확인
+        if ((this.currentNovel.chapters || []).length <= 1) {
+            this.showToast('회차가 1개뿐인 작품에서는 이동할 수 없습니다.', 'error');
+            return;
+        }
+
+        // ── 1. 원본 작품에서 회차 제거 ──
+        const [movedChapter] = this.currentNovel.chapters.splice(chapterIdx, 1);
+        if (!movedChapter) { this.showToast('회차를 찾을 수 없습니다.', 'error'); return; }
+
+        const nowISO = new Date().toISOString();
+        this.currentNovel.updatedAt = nowISO;
+        // 이동한 회차의 updatedAt도 갱신 (대상 작품에서 최신으로 인식되도록)
+        movedChapter.updatedAt = nowISO;
+
+        // 원본 작품 저장
+        await this.db.saveNovel(this.currentNovel);
+        const srcMetaIdx = this.novels.findIndex(n => n.id === srcId);
+        if (srcMetaIdx !== -1) {
+            this.novels[srcMetaIdx] = await this.db.getMeta(srcId);
+        }
+
+        // ── 2. 대상 작품에 회차 추가 ──
+        const dstNovel = await this.db.getNovelById(dstId);
+        if (!dstNovel) {
+            this.showToast('대상 작품을 불러오지 못했습니다.', 'error');
+            // 실패 시 원본 복구
+            this.currentNovel.chapters.splice(chapterIdx, 0, movedChapter);
+            await this.db.saveNovel(this.currentNovel);
+            return;
+        }
+
+        if (!Array.isArray(dstNovel.chapters)) dstNovel.chapters = [];
+        dstNovel.chapters.push(movedChapter);
+        dstNovel.updatedAt = nowISO;
+
+        await this.db.saveNovel(dstNovel);
+        const dstMetaIdx = this.novels.findIndex(n => n.id === dstId);
+        if (dstMetaIdx !== -1) {
+            this.novels[dstMetaIdx] = await this.db.getMeta(dstId);
+        }
+
+        // ── 3. UI 갱신 ──
+        // 선택 인덱스 안전 조정
+        this.selectedChapterIndex = Math.min(chapterIdx, this.currentNovel.chapters.length - 1);
+
+        this.closeModal();
+        this.rebuildTagCache();
+        this.showToast(`"${movedChapter.title}"을(를) "${dstNovel.title}"(으)로 이동했습니다.`);
+        this.refreshChapterSidebar();
+        this.refreshChapterContent();
+        this.rememberPosition();
     },
 
     /* 작품 전체를 하나의 TXT로 다운로드 */

@@ -51,25 +51,33 @@ const ModalMixin = {
                     <label class="form-label">키워드 (쉼표로 구분)</label>
                     <input type="text" id="postKeyword" class="input" placeholder="예: 로맨스, 피폐물">
                 </div>
-				<div class="form-group">
-                    <label class="form-label">연재 상태</label>
-                    <select id="postStatus" class="select">
-                        <option value="ongoing" selected>📖 연재</option>
-                        <option value="hiatus">📜 초고</option>
-                        <option value="completed">💎 완결</option>
-                        <option value="dropped">🌠 썰</option>
-                    </select>
-                </div>
-                <div class="form-row">
+				
+                <div class="form-row-3">
                     <div class="form-group">
-                        <label class="form-label">첫 회차 제목</label>
-                        <input type="text" id="postChapterTitle" class="input" value="1화." required>
+                        <label class="form-label">연재 상태</label>
+                        <select id="postStatus" class="select">
+                            <option value="ongoing" selected>📖 연재</option>
+                            <option value="hiatus">📜 초고</option>
+                            <option value="completed">💎 완결</option>
+                            <option value="dropped">🌠 썰</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">회차당 목표 글자수</label>
                         <input type="number" id="postTargetChars" class="input" value="5000" step="500">
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">성인 작품 체크</label>
+                        <label class="checkbox-label checkbox-label--boxed">
+                            <input type="checkbox" id="postIsAdult">🔞 19금
+                        </label>
+                    </div>
                 </div>
+				
+                <div class="form-group">
+                    <label class="form-label">첫 회차 제목</label>
+                    <input type="text" id="postChapterTitle" class="input" value="1화." required>
+				</div>
                 <div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
                         <label class="form-label" style="margin:0;">본문 내용</label>
@@ -108,6 +116,8 @@ const ModalMixin = {
         const chTitle = document.getElementById('postChapterTitle').value.trim() || '1화';
         const content = applyTextCorrections((document.getElementById('postContent').value || '').trim());
 		const status = (document.getElementById('postStatus') || {}).value || 'ongoing';
+        const isAdultEl = document.getElementById('postIsAdult');
+        const isAdult = isAdultEl ? isAdultEl.checked : false;
 
         this.lastInput = { color, title, keyword };
         localStorage.setItem('novel_archive_last_input', JSON.stringify(this.lastInput));
@@ -115,7 +125,7 @@ const ModalMixin = {
         const nowISO = new Date().toISOString();
         const newId = this.novels.length > 0 ? Math.max(...this.novels.map(n => n.id)) + 1 : 1;
         const newNovel = {
-            id: newId, color, title, keyword, targetChars, status,
+            id: newId, color, title, keyword, targetChars, status, isAdult,
             settings: [{ title: '기본 설정', content: '내용 없음', createdAt: nowISO, updatedAt: nowISO }],
             chapters: [{ title: chTitle, content, createdAt: nowISO, updatedAt: nowISO }],
             createdAt: nowISO, updatedAt: nowISO,
@@ -151,33 +161,55 @@ const ModalMixin = {
                     <label class="form-label">키워드</label>
                     <input type="text" id="editNovelKeyword" class="input" value="${escapeHtml(novel.keyword || '')}">
                 </div>
-				<div class="form-group">
-                    <label class="form-label">연재 상태</label>
-                    <select id="editNovelStatus" class="select">
-                        <option value="ongoing"   ${(novel.status || 'ongoing') === 'ongoing'   ? 'selected' : ''}>📖 연재</option>
-                        <option value="hiatus"    ${novel.status === 'hiatus'    ? 'selected' : ''}>📜 초고</option>
-                        <option value="completed" ${novel.status === 'completed' ? 'selected' : ''}>💎 완결</option>
-                        <option value="dropped"   ${novel.status === 'dropped'   ? 'selected' : ''}>🌠 썰</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">회차당 목표 글자수</label>
-                    <input type="number" id="editNovelTarget" class="input" value="${novel.targetChars || 5000}" step="500">
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">연재 상태</label>
+                        <select id="editNovelStatus" class="select">
+                            <option value="ongoing"   ${(novel.status || 'ongoing') === 'ongoing'   ? 'selected' : ''}>📖 연재</option>
+                            <option value="hiatus"    ${novel.status === 'hiatus'    ? 'selected' : ''}>📜 초고</option>
+                            <option value="completed" ${novel.status === 'completed' ? 'selected' : ''}>💎 완결</option>
+                            <option value="dropped"   ${novel.status === 'dropped'   ? 'selected' : ''}>🌠 썰</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">회차당 목표 글자수</label>
+                        <input type="number" id="editNovelTarget" class="input"
+                               value="${novel.targetChars || 5000}" step="500">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">성인 작품 체크</label>
+                        <label class="checkbox-label checkbox-label--boxed">
+                            <input type="checkbox" id="editNovelIsAdult" ${novel.isAdult ? 'checked' : ''}>🔞 19금
+                        </label>
+                    </div>
                 </div>
             `,
         });
         document.getElementById('modalOverlay').classList.remove('hidden');
     },
 
-    async handleEditNovelSubmit(event, novelId) {
+        async handleEditNovelSubmit(event, novelId) {
         event.preventDefault();
         if (!this.currentNovel) return;
-        this.currentNovel.color = document.querySelector('input[name="editNovelColor"]:checked').value;
-        this.currentNovel.title = document.getElementById('editNovelTitle').value.trim();
-        this.currentNovel.keyword = document.getElementById('editNovelKeyword').value.trim();
-        this.currentNovel.targetChars = parseInt(document.getElementById('editNovelTarget').value) || 5000;
-		const statusEl = document.getElementById('editNovelStatus'); 
-        this.currentNovel.status = statusEl ? statusEl.value : 'ongoing'; 
+
+        const colorEl = document.querySelector('input[name="editNovelColor"]:checked');
+        this.currentNovel.color = colorEl ? colorEl.value : this.currentNovel.color;
+
+        const titleEl = document.getElementById('editNovelTitle');
+        if (titleEl) this.currentNovel.title = titleEl.value.trim();
+
+        const keywordEl = document.getElementById('editNovelKeyword');
+        if (keywordEl) this.currentNovel.keyword = keywordEl.value.trim();
+
+        const targetEl = document.getElementById('editNovelTarget');
+        this.currentNovel.targetChars = targetEl ? (parseInt(targetEl.value) || 5000) : (this.currentNovel.targetChars || 5000);
+
+        const statusEl = document.getElementById('editNovelStatus');
+        this.currentNovel.status = statusEl ? statusEl.value : (this.currentNovel.status || 'ongoing');
+
+        const isAdultEl = document.getElementById('editNovelIsAdult');
+        this.currentNovel.isAdult = isAdultEl ? isAdultEl.checked : (this.currentNovel.isAdult === true);
+
         this.currentNovel.updatedAt = new Date().toISOString();
         await this.persistCurrentNovel();
         this.closeModal();

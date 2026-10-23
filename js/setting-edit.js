@@ -64,8 +64,7 @@ const SettingEditMixin = {
                  class="content-display markdown-render setting-display ${this.fontFamily}"
                  style="font-size: ${this.fontSize}pt; line-height: ${this.lineHeight};">${this.parseMarkdown(setting.content || '설정 내용이 없습니다.')}</div>
 			
-			<div class="content-hint">📌 마크다운 : # 제목, ## 소제목, **굵은글씨**, *기울임*, ~~취소선~~, --- 구분선, - 리스트, > 인용
-				<br>| 표 |, |:좌측정렬|, |:중앙정렬:|, |우측정렬:|, ![이미지](http url)</div>
+			<div class="content-hint">📌 마크다운 : # 제목, ## 소제목, **굵은글씨**, *기울임*, &#96;형광펜&#96;, ~~취소선~~, --- 구분선<br>- 리스트, > 인용, | 표 |, |:좌측정렬|, |:중앙정렬:|, |우측정렬:|, ![이미지](http url)</div>
 			<div class="content-bottom">
                 <div class="chapter-nav">
 				
@@ -77,11 +76,13 @@ const SettingEditMixin = {
                                 ${isLastSetting ? 'disabled' : ''}
                                 title="다음 설정">다음 설정 ›</button>
 						<span class="chapter-nav-sep">|</span>
-						<button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="chapter-nav-btn">맨 위로</button>
+						<button onclick="window.scrollTo({top:0})" class="chapter-nav-btn">맨 위로</button>
 						<span class="chapter-nav-sep">|</span>
 						<button onclick="app.switchDetailTab('chapters')" class="chapter-nav-btn">소설 본문</button>
 						<span class="chapter-nav-sep">|</span>
 						<button onclick="app.goToList()" class="chapter-nav-btn">목록</button>
+						<span class="chapter-nav-sep">|</span>
+						<button onclick="app.openAddSettingModal(${novel.id})" class="chapter-nav-btn" title="새 설정 작성">+ 설정 추가</button>
 						<span class="chapter-nav-sep">|</span>
 						<button onclick="app.openEditSettingModal(${novel.id},${this.selectedSettingIndex})" class="chapter-nav-btn" title="설정 수정">✏️</button>
 						<span class="chapter-nav-sep">|</span>
@@ -121,15 +122,21 @@ const SettingEditMixin = {
                     <label class="form-label">설정 제목</label>
                     <input type="text" id="settingTitle" class="input" placeholder="예: 주요 인물 소개" required>
                 </div>
-                <div class="form-group">
+				<div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
                         <label class="form-label" style="margin:0;">설정 내용 (마크다운 지원)</label>
-                        <label class="cyan-button" style="cursor:pointer;">
-                            텍스트 업로드
-                            <input type="file" accept=".txt" onchange="app.handleSettingTextFileUpload(event)" hidden>
-                        </label>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button type="button"
+                                    onclick="app.insertImageMarkdown('settingContent')"
+                                    class="purple-button">🖼️ 이미지 url 추가</button>
+                            <label class="cyan-button" style="cursor:pointer;">
+                                텍스트 업로드
+                                <input type="file" accept=".txt" onchange="app.handleSettingTextFileUpload(event)" hidden>
+                            </label>
+                        </div>
                     </div>
-                    <textarea id="settingContent" class="textarea" rows="8"></textarea>
+                    <textarea id="settingContent" class="textarea" rows="24"></textarea>
+					<div class="content-hint">📌 마크다운 : # 제목, ## 소제목, **굵은글씨**, *기울임*, &#96;형광펜&#96;, ~~취소선~~, --- 구분선, - 리스트, > 인용, | 표 |, ![이미지](http url)</div>
                 </div>
             `,
         });
@@ -185,12 +192,18 @@ const SettingEditMixin = {
                 <div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
                         <label class="form-label" style="margin:0;">설정 내용</label>
-                        <label class="cyan-button" style="cursor:pointer;">
-                            텍스트 교체
-                            <input type="file" accept=".txt" onchange="app.handleEditSettingTextFileUpload(event)" hidden>
-                        </label>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button type="button"
+                                    onclick="app.insertImageMarkdown('editSettingContent')"
+                                    class="purple-button">🖼️ 이미지 url 추가</button>
+                            <label class="cyan-button" style="cursor:pointer;">
+                                텍스트 교체
+                                <input type="file" accept=".txt" onchange="app.handleEditSettingTextFileUpload(event)" hidden>
+                            </label>
+                        </div>
                     </div>
                     <textarea id="editSettingContent" class="textarea" rows="24">${escapeHtml(st.content)}</textarea>
+					<div class="content-hint">📌 마크다운 : # 제목, ## 소제목, **굵은글씨**, *기울임*, &#96;형광펜&#96;, ~~취소선~~, --- 구분선, - 리스트, > 인용, | 표 |, ![이미지](http url)</div>
                 </div>
             `,
         });
@@ -209,6 +222,49 @@ const SettingEditMixin = {
             }
         };
         reader.readAsText(file, 'utf-8');
+    },
+	    /* ── 커서 위치에 이미지 마크다운 삽입 ── */
+    insertImageMarkdown(textareaId) {
+        const ta = document.getElementById(textareaId);
+        if (!ta) {
+            this.showToast('입력창을 찾을 수 없습니다.', 'error');
+            return;
+        }
+
+        // URL 입력 프롬프트
+        const url = prompt('이미지 URL을 입력하세요.\n예: https://example.com/image.png');
+        if (!url) return;                       // 취소
+        const trimmed = url.trim();
+
+        // 스킴 검사 (http(s), data:image, 상대경로 허용)
+        if (!/^(https?:\/\/|data:image\/|\/|\.\/|\.\.\/)/i.test(trimmed)) {
+            this.showToast('http(s):// 또는 data:image/ 로 시작하는 URL만 사용할 수 있습니다.', 'error');
+            return;
+        }
+
+        // 대체 텍스트 입력 (선택)
+        const alt = (prompt('대체 텍스트(alt)를 입력하세요. 비워두셔도 됩니다.', '이미지') || '').trim();
+
+        // 삽입할 마크다운: 이미지 단독 라인이 되도록 앞뒤로 개행을 붙인다
+        const md = `\n![${alt}](${trimmed})\n`;
+
+        // ── 커서 위치 삽입 ──
+        const start = ta.selectionStart ?? ta.value.length;
+        const end   = ta.selectionEnd   ?? ta.value.length;
+        const before = ta.value.slice(0, start);
+        const after  = ta.value.slice(end);
+
+        ta.value = before + md + after;
+
+        // 커서를 삽입한 이미지 마크다운 뒤로 이동
+        const newPos = start + md.length;
+        ta.focus();
+        ta.setSelectionRange(newPos, newPos);
+
+        // input 이벤트를 강제로 발생시켜 필요 시 다른 로직도 반응
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+
+        this.showToast('이미지 마크다운이 삽입되었습니다.');
     },
 
     async handleEditSettingSubmit(event, novelId, settingIndex) {

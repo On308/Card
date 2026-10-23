@@ -139,6 +139,7 @@ const DetailViewMixin = {
         } else if (this.currentView === 'detail') {
             view.innerHTML = this.renderDetailView();
         }
+		this.updateGlobalStats();
     },
 
     goToList() {
@@ -146,6 +147,7 @@ const DetailViewMixin = {
         this.selectedNovelId = null;
         this.currentNovel = null;
         this.render();
+		window.scrollTo({ top: 0, behavior: 'auto' });
     },
 
     async goToDetail(novelId) {
@@ -169,6 +171,7 @@ const DetailViewMixin = {
         this.activeDetailTab = 'chapters';
         this.render();
         this.rememberPosition();
+		window.scrollTo({ top: 0, behavior: 'auto' });
     },
 
     async goToPrevNovel() {
@@ -201,17 +204,22 @@ const DetailViewMixin = {
         return `
             <div class="detail-view">
                 <div class="panel detail-header">
-                    <div class="detail-title-row">
                         <div class="detail-title-wrap">
                             <span class="color-dot" style="background-color:${novel.color || '#f8c8dc'};"></span>
                             <h2 class="detail-title">
                                 ${escapeHtml(novel.title)}
-                                ${hasSettings ? '<span class="badge-icon" title="설정집 100자 이상">🏷️</span>' : ''}
+								${novel.isAdult ? '<span class="badge-icon" title="19금 작품">🔞</span>' : ''}
 								<span class="status-badge status-${getStatusInfo(novel.status || 'ongoing').id}">
 									${getStatusInfo(novel.status || 'ongoing').emoji} ${getStatusInfo(novel.status || 'ongoing').label}
 								</span>
                             </h2>
-                        </div>
+                    </div>
+
+                    <div class="detail-title-row">
+                    <div class="detail-tabs">
+                        <button onclick="app.switchDetailTab('chapters')" class="tab-btn ${this.activeDetailTab === 'chapters' ? 'active' : ''}">연재 소설 본문</button>
+                        <button onclick="app.switchDetailTab('settings')" class="tab-btn ${this.activeDetailTab === 'settings' ? 'active' : ''}">설정 및 메모 ${hasSettings ? '🏷️' : ''}</button>
+                    </div>
                         <div class="detail-actions">
                             <button onclick="app.goToList()" class="btn btn-soft btn-sm">목록으로</button>
                             <button onclick="app.goToPrevNovel()" class="btn btn-soft btn-sm">▲ 이전글</button>
@@ -219,11 +227,6 @@ const DetailViewMixin = {
 							<button onclick="app.downloadWholeNovel()" class="btn btn-success btn-sm">전체 저장</button>
                             <button onclick="app.openEditNovelModal(${novel.id})" class="btn btn-purple btn-sm">정보 수정</button>
                         </div>
-                    </div>
-
-                    <div class="detail-tabs">
-                        <button onclick="app.switchDetailTab('chapters')" class="tab-btn ${this.activeDetailTab === 'chapters' ? 'active' : ''}">연재 소설 본문</button>
-                        <button onclick="app.switchDetailTab('settings')" class="tab-btn ${this.activeDetailTab === 'settings' ? 'active' : ''}">설정집 및 메모 ${hasSettings ? '🏷️' : ''}</button>
                     </div>
 
                     <div class="keyword-row">
@@ -245,8 +248,10 @@ const DetailViewMixin = {
     },
 
     switchDetailTab(tab) {
+        if (this.activeDetailTab === tab) return;
         this.activeDetailTab = tab;
         this.render();
+        window.scrollTo({ top: 0, behavior: 'auto' });
     },
 
     renderChaptersPanel() {
@@ -306,7 +311,7 @@ const DetailViewMixin = {
         });
         this.refreshChapterContent();
 		this.rememberPosition(); 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: 'auto' });
     },
     selectSetting(idx) {
         if (this.selectedSettingIndex === idx) return;
@@ -461,7 +466,7 @@ const DetailViewMixin = {
         // 굵게
         out = out.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-        // 인라인 코드
+        // 형광펜
         out = out.replace(/`([^`\n]+?)`/g, '<code class="md-code">$1</code>');
 
         // ── 리스트 래핑 & 문단 래핑 ──

@@ -10,7 +10,7 @@ const COLOR_PALETTE = [
     { id: 'blue',     name: '블루',   hex: '#92bef1' },
     { id: 'sky',      name: '하늘',   hex: '#c0e1fb' },
     { id: 'mint',     name: '민트',   hex: '#b8e0d2' },
-    { id: 'cream',    name: '크림',   hex: '#fdf4e2' },
+    { id: 'green',    name: '그린',   hex: '#d0e084' },
     { id: 'gold',     name: '골드',   hex: '#d4af37' },
 ];
 
@@ -37,6 +37,8 @@ const SORT_COMPARATORS = {
     title_desc:     (a, b) => (b.title || '').localeCompare(a.title || '', 'ko'),
     chars_desc:     (a, b) => (b.totalChars || 0) - (a.totalChars || 0),
     chars_asc:      (a, b) => (a.totalChars || 0) - (b.totalChars || 0),
+	chapters_desc:  (a, b) => (b.chapterCount || 0) - (a.chapterCount || 0),
+    chapters_asc:   (a, b) => (a.chapterCount || 0) - (b.chapterCount || 0),
 };
 
 /* ============================================================

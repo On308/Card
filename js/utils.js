@@ -13,11 +13,13 @@ function applyTextCorrections(text) {
 
     converted = converted.replace(/\.{3,}/g, '……');
     converted = converted.replace(/···/g, '……');
+    converted = converted.replace(/　“/g, '“');
+    converted = converted.replace(/　‘/g, '‘');
     converted = converted.replace(/떄/g, '때');
     converted = converted.replace(/겟지/g, '겠지');
     converted = converted.replace(/겟어/g, '겠어');
     converted = converted.replace(/(…)([”’])/g, '$1.$2');
-    converted = converted.replace(/([다데지])([”’])/g, '$1.$2');
+    converted = converted.replace(/([다어데지])([”])/g, '$1.$2');
 
     return converted;
 }
