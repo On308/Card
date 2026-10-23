@@ -1,105 +1,1167 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Novel Archive</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📚 텍스트 저장소</title>
+  <!-- Google Font: Noto Serif KR & Gowun Batang for literary touch -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      /* Soft Marble Pastel Palette */
+      --bg-main: #fdf8f5;
+      --bg-card: #ffffff;
+      --pastel-pink: #f8c8dc;
+      --pastel-coral: #f8b195;
+      --pastel-lavender: #e2d4f0;
+      --pastel-mint: #b8e0d2;
+      --pastel-cream: #fff9ed;
+      --gold-accent: #d4af37;
+      --text-main: #3d3b40;
+      --text-muted: #79757f;
+      --border-color: #f0e6ed;
+      --shadow-soft: 0 8px 24px rgba(212, 175, 55, 0.08);
+      --shadow-hover: 0 12px 30px rgba(184, 224, 210, 0.25);
+    }
 
-    <!-- 테마 FOUC 방지: CSS보다 먼저 실행 -->
-    <script>
-        (function () {
-            try {
-                if (localStorage.getItem('novel_archive_theme') === 'dark') {
-                    document.documentElement.classList.add('dark');
-                }
-            } catch (e) {}
-        })();
-    </script>
-	
-    <!-- 폰트: preconnect + 초기 필수 폰트만 (나머지는 JS가 lazy load) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+    /* 야간 모드 (전체 다크 모드) 스타일 */
+    body.dark-mode {
+      --bg-main: #181a1f;
+      --bg-card: #21252b;
+      --text-main: #abb2bf;
+      --text-muted: #828a9a;
+      --border-color: #3e4451;
+      --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.3);
+      --shadow-hover: 0 12px 30px rgba(0, 0, 0, 0.5);
+    }
 
-    <link rel="stylesheet" href="style.css">
+    body.dark-mode header {
+      background: linear-gradient(135deg, #21252b 0%, #282c34 100%);
+      border-bottom: 2px solid rgba(212, 175, 55, 0.1);
+    }
+
+    body.dark-mode .brand h1 {
+      color: #e5c07b;
+    }
+
+    body.dark-mode .search-box input, 
+    body.dark-mode .sort-select {
+      background: #1b1d23;
+      color: #abb2bf;
+      border-color: #3e4451;
+    }
+
+    body.dark-mode .chip {
+      background: #282c34;
+      color: #abb2bf;
+    }
+
+    body.dark-mode .card-title {
+      color: #e5c07b;
+    }
+
+    body.dark-mode .card-snippet {
+      color: #9da5b4;
+    }
+
+    body.dark-mode .card-tag {
+      background: #282c34;
+      color: #e5c07b;
+      border-color: #3e4451;
+    }
+
+    body.dark-mode .drop-zone {
+      background: #21252b;
+      border-color: #3e4451;
+      color: #9da5b4;
+    }
+
+    body.dark-mode .editor-panel {
+      background: #21252b;
+      color: #abb2bf;
+    }
+
+    body.dark-mode .editor-form input[type="text"],
+    body.dark-mode .editor-form textarea {
+      background: #1b1d23;
+      color: #abb2bf;
+      border-color: #3e4451;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* Header Styling */
+    header {
+      background: linear-gradient(135deg, #fceae6 0%, #f3e9f8 50%, #e8f5f1 100%);
+      padding: 20px 30px;
+      border-bottom: 2px solid rgba(212, 175, 55, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 22px;
+      font-family: 'Gowun Batang', serif;
+      color: #4a3e4d;
+      font-weight: 700;
+    }
+
+    .brand-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* Button Styles */
+    .btn {
+      padding: 9px 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--pastel-coral), #f67280);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: var(--pastel-lavender);
+      color: #4a3d54;
+    }
+
+    .btn-mint {
+      background: var(--pastel-mint);
+      color: #2c5446;
+    }
+
+    .btn-outline {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    /* Container Layout */
+    .container {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 25px 20px;
+      flex: 1;
+    }
+
+    /* Controls Bar: Search & Tags */
+    .control-panel {
+      background: var(--bg-card);
+      border-radius: 18px;
+      padding: 18px 24px;
+      margin-bottom: 25px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      flex: 1;
+      position: relative;
+      min-width: 250px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 16px 10px 38px;
+      border-radius: 12px;
+      border: 1px solid #e2d9e0;
+      font-size: 14px;
+      outline: none;
+      background: #faf7f9;
+      transition: all 0.2s;
+    }
+
+    .search-box input:focus {
+      background: var(--bg-card);
+      border-color: var(--pastel-coral);
+      box-shadow: 0 0 0 3px rgba(248, 177, 149, 0.25);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .sort-select {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid #e2d9e0;
+      background: #faf7f9;
+      font-size: 13px;
+      color: var(--text-main);
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* Tag Filter Chips */
+    .tag-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .tag-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-right: 4px;
+    }
+
+    .chip {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      background: #f4edf5;
+      color: #64566d;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+
+    .chip:hover {
+      background: var(--pastel-lavender);
+    }
+
+    .chip.active {
+      background: linear-gradient(135deg, var(--pastel-coral), var(--pastel-pink));
+      color: white;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(246, 114, 128, 0.3);
+    }
+
+    /* Novel Grid List */
+    .novel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .novel-card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 22px;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-soft);
+      transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .novel-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 6px;
+      height: 100%;
+      background: linear-gradient(to bottom, var(--pastel-pink), var(--pastel-mint));
+      opacity: 0.8;
+    }
+
+    .novel-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-hover);
+      border-color: rgba(212, 175, 55, 0.4);
+    }
+
+    .card-title {
+      font-family: 'Gowun Batang', serif;
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0 0 10px 0;
+      color: #2c2830;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+
+    body.dark-mode .card-title {
+      color: #e5c07b;
+    }
+
+    .card-title:hover {
+      color: #f67280;
+    }
+
+    .card-snippet {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 15px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 15px;
+    }
+
+    .card-tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 8px;
+      background: var(--pastel-cream);
+      color: #8a6d3b;
+      border: 1px solid #faebcc;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      border-top: 1px dashed var(--border-color);
+      padding-top: 12px;
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 11px;
+      border-radius: 8px;
+    }
+
+    /* Reader Modal View */
+    .reader-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(40, 35, 45, 0.6);
+      backdrop-filter: blur(6px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .reader-modal.active {
+      display: flex;
+    }
+
+    .reader-container {
+      background: #faf6f0; /* Warm Paper */
+      width: 100%;
+      max-width: 850px;
+      height: 90vh;
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .reader-header {
+      padding: 18px 25px;
+      background: rgba(255,255,255,0.7);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .reader-container.theme-dark .reader-header {
+      background: rgba(33, 37, 43, 0.8);
+      border-bottom: 1px solid #3e4451;
+    }
+
+    .reader-tools {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .reader-body {
+      padding: 40px 50px;
+      overflow-y: auto;
+      flex: 1;
+      font-size: 17px;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* 폰트 적용 클래스 (명조/고딕) */
+    .font-serif, .font-serif .reader-body {
+      font-family: 'Gowun Batang', serif !important;
+    }
+    .font-sans, .font-sans .reader-body {
+      font-family: 'Noto Sans KR', sans-serif !important;
+    }
+
+    /* Reader Theme Modes */
+    .theme-paper { background: #faf6f0; color: #2c2523; }
+    .theme-white { background: #ffffff; color: #1a1a1a; }
+    .theme-dark { background: #23272e; color: #adbac7; }
+
+    /* Editor Side Panel (화면 절반 크기로 넓힘) */
+    .editor-panel {
+      position: fixed;
+      top: 0;
+      right: -55vw;
+      width: 100%;
+      max-width: 55vw;
+      height: 100vh;
+      background: var(--bg-card);
+      box-shadow: -10px 0 30px rgba(0,0,0,0.15);
+      z-index: 500;
+      transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      padding: 25px;
+      border-left: 1px solid var(--border-color);
+    }
+
+    .editor-panel.open {
+      right: 0;
+    }
+
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--pastel-lavender);
+    }
+
+    .editor-form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      flex: 1;
+    }
+
+    .editor-form input[type="text"] {
+      width: 100%;
+      padding: 12px 15px;
+      border-radius: 10px;
+      border: 1px solid #e0d6e3;
+      font-size: 14px;
+      outline: none;
+    }
+
+    /* 작성 화면 본문: 고딕체 적용 및 폰트 크기 확대 (16px) */
+    .editor-form textarea {
+      width: 100%;
+      flex: 1;
+      padding: 15px;
+      border-radius: 12px;
+      border: 1px solid #e0d6e3;
+      font-family: 'Noto Sans KR', sans-serif !important;
+      font-size: 16px;
+      line-height: 1.7;
+      resize: none;
+      outline: none;
+    }
+
+    .draft-badge {
+      font-size: 11px;
+      color: #2c5446;
+      background: var(--pastel-mint);
+      padding: 3px 8px;
+      border-radius: 6px;
+      display: none;
+    }
+
+    /* Drag and Drop Zone */
+    .drop-zone {
+      border: 2px dashed var(--pastel-coral);
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+      background: #fffcfb;
+      color: var(--text-muted);
+      font-size: 13px;
+      transition: all 0.2s;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .drop-zone.dragover {
+      background: #fdeee9;
+      border-color: #f67280;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+      grid-column: 1 / -1;
+    }
+
+    /* Overlay backdrop */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.3);
+      z-index: 400;
+      display: none;
+    }
+
+    .overlay.active {
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+      }
+      .header-actions {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+      .reader-body {
+        padding: 25px;
+      }
+      .editor-panel {
+        max-width: 100%;
+        right: -100vw;
+      }
+    }
+  </style>
 </head>
 <body>
 
-    <header class="app-header">
-	    <div class="brand">
-            <button class="brand-icon" onclick="app.goToList()">N</button>
-            <div id="globalStats" class="global-stats" title="모든 작품의 누적 통계">
-                    <span class="stat-item"><span class="stat-label">누적 글자</span> <strong id="statChars">0</strong></span>
-                    <span class="stat-sep">·</span>
-                    <span class="stat-item"><span class="stat-label">누적 회차</span> <strong id="statChapters">0</strong></span>
+  <header>
+    <div class="brand">
+      <span>📚</span>
+      <div>
+        <h1>텍스트 저장소</h1>
+        <div class="brand-sub">개인용 백업 아카이브 - 소설 & 썰 보관함</div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-outline" id="darkModeBtn" onclick="toggleDarkMode()">🌙 야간모드</button>
+      <button class="btn btn-primary" onclick="openEditor()">
+        ✍️ 새 소설 쓰기
+      </button>
+      <button class="btn btn-secondary" onclick="exportData()">
+        💾 백업 (JSON)
+      </button>
+      <button class="btn btn-outline" onclick="document.getElementById('importFileInput').click()">
+        📂 불러오기
+      </button>
+      <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Controls Bar -->
+    <div class="control-panel">
+      <div class="search-row">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="제목, 내용, 태그 검색..." oninput="handleSearch()">
+        </div>
+
+        <select class="sort-select" id="sortSelect" onchange="changeSort(this.value)">
+          <option value="newest">최신순 정렬</option>
+          <option value="oldest">등록순 정렬</option>
+          <option value="title">제목순 정렬</option>
+        </select>
+      </div>
+
+      <!-- Tag Filters -->
+      <div class="tag-chips" id="tagChipsContainer">
+        <span class="tag-label">🏷️ 태그 필터:</span>
+        <!-- Dynamic Tag Chips -->
+      </div>
+    </div>
+
+    <!-- Drag and Drop Zone -->
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('txtFileInput').click()">
+      📄 .txt 파일을 이곳에 드래그 앤 드롭하거나 클릭하여 게시글로 자동 등록하세요!
+      <input type="file" id="txtFileInput" accept=".txt" style="display:none" onchange="handleTxtUpload(event)">
+    </div>
+
+    <br>
+
+    <!-- Novel Grid Container -->
+    <div class="novel-grid" id="novelGrid">
+      <!-- Novel cards will be populated here -->
+    </div>
+  </div>
+
+  <!-- Editor Side Panel -->
+  <div class="overlay" id="overlay" onclick="closeEditor()"></div>
+  
+  <div class="editor-panel" id="editorPanel">
+    <div class="editor-header">
+      <h2 id="editorTitle" style="margin: 0; font-size: 18px; font-family: 'Gowun Batang', serif;">✨ 새 소설 작성</h2>
+      <span class="draft-badge" id="draftBadge">임시 저장됨</span>
+      <button class="btn btn-outline btn-sm" onclick="closeEditor()">✕ 닫기</button>
+    </div>
+
+    <div class="editor-form">
+      <!-- 작성창 내부 .txt 파일 업로드 영역 -->
+      <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px dashed var(--border-color);">
+        <span style="font-size: 12px; color: var(--text-muted);">📄 .txt 파일을 불러와 제목과 본문에 채우기</span>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('editorTxtInput').click()">파일 선택</button>
+        <input type="file" id="editorTxtInput" accept=".txt" style="display:none" onchange="handleEditorTxtUpload(event)">
+      </div>
+
+      <input type="text" id="editTitle" placeholder="소설 제목 / 회차 (예: 제1화. 운명적 만남)" oninput="handleAutoSave()">
+      <input type="text" id="editTags" placeholder="태그 입력 (쉼표 구분: 판타지, 로맨스, 단편)" oninput="handleAutoSave()">
+      <textarea id="editContent" placeholder="이곳에 소설 본문을 작성하거나 붙여넣으세요..." oninput="handleContentInput()"></textarea>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; gap: 8px;">
+        <span>글자 수: <strong id="editCharCount">0자 / 0자</strong></span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-outline" id="btnCancelEdit" onclick="closeEditor()">취소</button>
+          <button class="btn btn-primary" onclick="saveNovel()">저장하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full Screen Reader Modal -->
+  <div class="reader-modal" id="readerModal">
+    <div class="reader-container theme-paper font-serif" id="readerContainer">
+      <div class="reader-header">
+        <div>
+          <h3 id="readerTitle" style="margin:0; font-size: 18px;">작품 제목</h3>
+          <span id="readerMeta" style="font-size: 12px; color: var(--text-muted);">2026. 10. 13 | 3,420 자</span>
+        </div>
+
+        <!-- Reader Display Tools -->
+        <div class="reader-tools">
+          <button class="btn btn-outline btn-sm" id="fontToggleBtn" onclick="toggleReaderFont()">🔤 고딕체</button>
+          <button class="btn btn-outline btn-sm" onclick="adjustFontSize(-1)">가-</button>
+          <button class="btn btn-outline btn-sm" onclick="adjustFontSize(1)">가+</button>
+          <button class="btn btn-outline btn-sm" onclick="toggleReaderTheme('paper')">📜 페이퍼</button>
+          <button class="btn btn-outline btn-sm" onclick="toggleReaderTheme('dark')">🌙 야간</button>
+          <button class="btn btn-outline btn-sm" onclick="closeReader()">✕ 닫기</button>
+        </div>
+      </div>
+
+      <div class="reader-body" id="readerBody">
+        <!-- Novel full content -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let novels = [];
+    let editingId = null;
+    let selectedTag = 'ALL';
+    let currentSort = 'newest';
+    let readerFontSize = 17;
+    let autoSaveTimer = null;
+    let isDarkMode = false;
+    let isSansFont = false; // false: 명조체(Serif), true: 고딕체(Sans)
+
+    // Load data on startup
+    document.addEventListener('DOMContentLoaded', () => {
+      loadNovelsFromStorage();
+      setupDragAndDrop();
+      checkDraft();
+      loadThemePreference();
+    });
+
+    function loadNovelsFromStorage() {
+      const stored = localStorage.getItem('myNovels');
+      novels = stored ? JSON.parse(stored) : [];
+      renderApp();
+    }
+
+    function saveNovelsToStorage() {
+      localStorage.setItem('myNovels', JSON.stringify(novels));
+      renderApp();
+    }
+
+    function toggleDarkMode() {
+      isDarkMode = !isDarkMode;
+      document.body.classList.toggle('dark-mode', isDarkMode);
+      const btn = document.getElementById('darkModeBtn');
+      btn.innerText = isDarkMode ? '☀️ 주간모드' : '🌙 야간모드';
+      localStorage.setItem('novel_darkMode', isDarkMode);
+    }
+
+    function loadThemePreference() {
+      const savedDark = localStorage.getItem('novel_darkMode');
+      if (savedDark === 'true') {
+        isDarkMode = true;
+        document.body.classList.add('dark-mode');
+        document.getElementById('darkModeBtn').innerText = '☀️ 주간모드';
+      }
+    }
+
+    function renderApp() {
+      renderTagChips();
+      renderNovelGrid();
+    }
+
+    function renderTagChips() {
+      const container = document.getElementById('tagChipsContainer');
+      const tagMap = {};
+
+      novels.forEach(n => {
+        if (n.tags && Array.isArray(n.tags)) {
+          n.tags.forEach(t => tagMap[t] = (tagMap[t] || 0) + 1);
+        }
+      });
+
+      const tags = Object.keys(tagMap);
+      let html = `<span class="tag-label">🏷️ 태그:</span>`;
+      html += `<span class="chip ${selectedTag === 'ALL' ? 'active' : ''}" onclick="filterByTag('ALL')">전체 (${novels.length})</span>`;
+
+      tags.forEach(tag => {
+        html += `<span class="chip ${selectedTag === tag ? 'active' : ''}" onclick="filterByTag('${escapeHtml(tag)}')">#${escapeHtml(tag)} (${tagMap[tag]})</span>`;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function renderNovelGrid() {
+      const grid = document.getElementById('novelGrid');
+      const searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+
+      // Filtering logic
+      let filtered = novels.filter(n => {
+        const matchTag = selectedTag === 'ALL' || (n.tags && n.tags.includes(selectedTag));
+        const matchSearch = !searchQuery || 
+          n.title.toLowerCase().includes(searchQuery) || 
+          n.content.toLowerCase().includes(searchQuery) ||
+          (n.tags && n.tags.some(t => t.toLowerCase().includes(searchQuery)));
+        return matchTag && matchSearch;
+      });
+
+      // Sorting logic
+      filtered.sort((a, b) => {
+        if (currentSort === 'newest') return b.id - a.id;
+        if (currentSort === 'oldest') return a.id - b.id;
+        if (currentSort === 'title') return a.title.localeCompare(b.title);
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <span style="font-size:36px;">📖</span>
+            <p>보관된 소설이 없습니다.<br>새로운 글을 등록하거나 .txt 파일을 추가해보세요!</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(novel => {
+        const tagsHtml = (novel.tags || []).map(t => `<span class="card-tag">#${escapeHtml(t)}</span>`).join('');
+        const snippet = escapeHtml(novel.content.slice(0, 140)) + (novel.content.length > 140 ? '...' : '');
+        const charCountDisplay = formatCharCount(novel.content);
+
+        return `
+          <div class="novel-card">
+            <div>
+              <h3 class="card-title" onclick="openReader(${novel.id})">${escapeHtml(novel.title)}</h3>
+              <div class="card-meta">
+                <span>📅 ${novel.date}</span>
+                <span>📏 ${charCountDisplay}</span>
+              </div>
+              <div class="card-tags">${tagsHtml}</div>
+              <div class="card-snippet" onclick="openReader(${novel.id})">${snippet}</div>
             </div>
-        </div>
-				
-        <div class="header-actions">
-            <button onclick="app.openNewPostModal()" class="btn btn-primary">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                새 게시글
-            </button>
 
-            <button onclick="app.toggleDarkMode()" id="themeToggleBtn" class="btn-icon" title="테마 전환"></button>
+            <div class="card-actions">
+              <button class="btn btn-outline btn-sm" onclick="downloadTxt(${novel.id})">TXT</button>
+              <button class="btn btn-secondary btn-sm" onclick="editNovel(${novel.id})">수정</button>
+              <button class="btn btn-outline btn-sm" style="color:#d9534f;" onclick="deleteNovel(${novel.id})">삭제</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
 
-            <button onclick="app.downloadJSON()" class="btn btn-soft">JSON 다운</button>
-            <label class="btn btn-soft btn-file-label">
-                JSON 복원
-                <input type="file" accept=".json" onchange="app.restoreJSON(event)" hidden>
-            </label>
-			
-            <button onclick="app.connectFile()" id="connectFileBtn" class="btn btn-success">
-                📁 파일 연결
-            </button>
-            <button onclick="app.saveToFile()" id="saveFileBtn" class="btn btn-purple hidden" title="연결된 파일에 즉시 저장">
-                💾 파일 저장
-            </button>
+    function openEditor(isEdit = false) {
+      if (!isEdit) {
+        editingId = null;
+        document.getElementById('editorTitle').innerText = '✨ 새 소설 작성';
+        resetEditorForm();
+        checkDraft();
+      }
+      document.getElementById('editorPanel').classList.add('open');
+      document.getElementById('overlay').classList.add('active');
+    }
 
-        </div>
-    </header>
+    function closeEditor() {
+      document.getElementById('editorPanel').classList.remove('open');
+      document.getElementById('overlay').classList.remove('active');
+    }
 
-    <main class="app-main">
-        <div id="toastContainer" class="toast-container"></div>
-        <div id="appView" class="app-view">
-            <div class="view-loading">데이터를 불러오는 중입니다...</div>
-        </div>
-    </main>
+    function handleContentInput() {
+      const content = document.getElementById('editContent').value;
+      document.getElementById('editCharCount').innerText = formatCharCount(content);
+      handleAutoSave();
+    }
 
-    <div class="scroll-buttons">
-        <div class="scroll-btn-grid">
-            <button onclick="window.scrollTo({top:0})" class="scroll-btn" title="빠르게 맨 위로">▲</button>
-            <button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="scroll-btn" title="부드럽게 맨 위로">↑</button>
-            <button onclick="window.scrollTo({top:document.body.scrollHeight})" class="scroll-btn" title="빠르게 맨 아래로">▼</button>
-            <button onclick="window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'})" class="scroll-btn" title="부드럽게 맨 아래로">↓</button>
-        </div>
+    // 공백 포함 / 미포함 글자수를 예시 형식으로 계산해 주는 함수
+    function formatCharCount(text) {
+      if (!text) return "0자 / 0자";
+      const withSpaces = text.length;
+      const withoutSpaces = text.replace(/\s/g, '').length;
+      return `${withSpaces.toLocaleString()}자 / ${withoutSpaces.toLocaleString()}자`;
+    }
 
-        <!-- 실시간 날짜/시간 표시 -->
-        <div id="liveClock" class="live-clock">
-            <div class="live-clock-date">-</div>
-            <div class="live-clock-ampm">-</div>
-            <div class="live-clock-time">--:--:--</div>
-        </div>
-    </div>
+    function handleAutoSave() {
+      if (editingId !== null) return; // Only draft new entries
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        const draft = {
+          title: document.getElementById('editTitle').value,
+          tags: document.getElementById('editTags').value,
+          content: document.getElementById('editContent').value
+        };
+        if (draft.title || draft.content) {
+          localStorage.setItem('novel_draft', JSON.stringify(draft));
+          document.getElementById('draftBadge').style.display = 'inline-block';
+        }
+      }, 800);
+    }
 
-    <div id="modalOverlay" class="modal-overlay hidden">
-        <div id="modalContent" class="modal"></div>
-    </div>
+    function checkDraft() {
+      if (editingId !== null) return;
+      const savedDraft = localStorage.getItem('novel_draft');
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft);
+        document.getElementById('editTitle').value = draft.title || '';
+        document.getElementById('editTags').value = draft.tags || '';
+        document.getElementById('editContent').value = draft.content || '';
+        document.getElementById('editCharCount').innerText = formatCharCount(draft.content || '');
+        document.getElementById('draftBadge').style.display = 'inline-block';
+      }
+    }
 
-<script src="js/constants.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/db.js"></script>
-<script src="js/preferences.js"></script>
-<script src="js/file-sync.js"></script>
-<script src="js/modal.js"></script>
-<script src="js/list-view.js"></script>
-<script src="js/detail-view.js"></script>
-<script src="js/chapter-edit.js"></script>
-<script src="js/setting-edit.js"></script>
-<script src="js/app.js"></script>
+    function saveNovel() {
+      const title = document.getElementById('editTitle').value.trim();
+      const tagStr = document.getElementById('editTags').value.trim();
+      const content = document.getElementById('editContent').value;
 
+      if (!title || !content) {
+        alert('제목과 내용을 입력해주세요.');
+        return;
+      }
+
+      const tags = tagStr ? tagStr.split(',').map(t => t.trim().replace(/^#/, '')).filter(t => t) : [];
+
+      if (editingId !== null) {
+        novels = novels.map(n => n.id === editingId ? {
+          ...n,
+          title,
+          tags,
+          content,
+          charCount: content.length,
+          date: new Date().toLocaleDateString('ko-KR') + ' (수정됨)'
+        } : n);
+      } else {
+        const newNovel = {
+          id: Date.now(),
+          title,
+          tags,
+          content,
+          charCount: content.length,
+          date: new Date().toLocaleDateString('ko-KR')
+        };
+        novels.unshift(newNovel);
+        localStorage.removeItem('novel_draft');
+      }
+
+      saveNovelsToStorage();
+      closeEditor();
+      resetEditorForm();
+    }
+
+    function editNovel(id) {
+      const target = novels.find(n => n.id === id);
+      if (!target) return;
+
+      editingId = id;
+      document.getElementById('editorTitle').innerText = '✏️ 소설 수정';
+      document.getElementById('editTitle').value = target.title;
+      document.getElementById('editTags').value = target.tags ? target.tags.join(', ') : '';
+      document.getElementById('editContent').value = target.content;
+      document.getElementById('editCharCount').innerText = formatCharCount(target.content);
+      document.getElementById('draftBadge').style.display = 'none';
+
+      openEditor(true);
+    }
+
+    function resetEditorForm() {
+      document.getElementById('editTitle').value = '';
+      document.getElementById('editTags').value = '';
+      document.getElementById('editContent').value = '';
+      document.getElementById('editCharCount').innerText = '0자 / 0자';
+      document.getElementById('draftBadge').style.display = 'none';
+    }
+
+    function deleteNovel(id) {
+      if (!confirm('정말 이 소설을 삭제하시겠습니까?')) return;
+      novels = novels.filter(n => n.id !== id);
+      saveNovelsToStorage();
+    }
+
+    function openReader(id) {
+      const novel = novels.find(n => n.id === id);
+      if (!novel) return;
+
+      document.getElementById('readerTitle').innerText = novel.title;
+      document.getElementById('readerMeta').innerText = `${novel.date} | ${formatCharCount(novel.content)}`;
+      document.getElementById('readerBody').innerText = novel.content;
+      document.getElementById('readerModal').classList.add('active');
+    }
+
+    function closeReader() {
+      document.getElementById('readerModal').classList.remove('active');
+    }
+
+    function adjustFontSize(delta) {
+      readerFontSize = Math.max(13, Math.min(26, readerFontSize + delta));
+      document.getElementById('readerBody').style.fontSize = `${readerFontSize}px`;
+    }
+
+    function toggleReaderFont() {
+      isSansFont = !isSansFont;
+      const container = document.getElementById('readerContainer');
+      const fontBtn = document.getElementById('fontToggleBtn');
+      if (isSansFont) {
+        container.classList.remove('font-serif');
+        container.classList.add('font-sans');
+        fontBtn.innerText = '🔤 명조체';
+      } else {
+        container.classList.remove('font-sans');
+        container.classList.add('font-serif');
+        fontBtn.innerText = '🔤 고딕체';
+      }
+    }
+
+    function toggleReaderTheme(theme) {
+      const container = document.getElementById('readerContainer');
+      container.className = container.className.replace(/theme-\S+/, '') + ' theme-' + theme;
+    }
+
+    function setupDragAndDrop() {
+      const zone = document.getElementById('dropZone');
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        zone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          zone.classList.add('dragover');
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        zone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          zone.classList.remove('dragover');
+        }, false);
+      });
+
+      zone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0 && files[0].name.endsWith('.txt')) {
+          processTxtFile(files[0]);
+        }
+      });
+    }
+
+    function handleTxtUpload(event) {
+      const file = event.target.files[0];
+      if (file) processTxtFile(file);
+    }
+
+    function processTxtFile(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const textContent = e.target.result;
+        const titleWithoutExt = file.name.replace(/\.txt$/i, '');
+
+        const newNovel = {
+          id: Date.now(),
+          title: titleWithoutExt,
+          tags: ['파일업로드'],
+          content: textContent,
+          charCount: textContent.length,
+          date: new Date().toLocaleDateString('ko-KR')
+        };
+
+        novels.unshift(newNovel);
+        saveNovelsToStorage();
+        alert(`'${titleWithoutExt}' 소설이 성공적으로 등록되었습니다.`);
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    function handleEditorTxtUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const textContent = e.target.result;
+        const titleWithoutExt = file.name.replace(/\.txt$/i, '');
+
+        document.getElementById('editTitle').value = titleWithoutExt;
+        document.getElementById('editContent').value = textContent;
+        document.getElementById('editCharCount').innerText = formatCharCount(textContent);
+        handleAutoSave();
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    function downloadTxt(id) {
+      const target = novels.find(n => n.id === id);
+      if (!target) return;
+
+      const blob = new Blob(['\uFEFF' + target.content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${target.title.replace(/[\\/:*?"<>|]/g, '_')}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportData() {
+      const dataStr = JSON.stringify(novels, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `text_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (Array.isArray(imported)) {
+            novels = imported;
+            saveNovelsToStorage();
+            alert('백업 데이터를 불러왔습니다.');
+          }
+        } catch (err) {
+          alert('올바른 백업 JSON 파일이 아닙니다.');
+        }
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    /* Helper Utilities */
+    function filterByTag(tag) {
+      selectedTag = tag;
+      renderApp();
+    }
+
+    function handleSearch() {
+      renderNovelGrid();
+    }
+
+    function changeSort(val) {
+      currentSort = val;
+      renderNovelGrid();
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+  </script>
 </body>
 </html>
